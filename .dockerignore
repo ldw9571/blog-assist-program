@@ -1,0 +1,7 @@
+.git
+.gradle
+build
+db
+estate-data
+.env
+*.md

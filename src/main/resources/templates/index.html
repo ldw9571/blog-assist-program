@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>렌트제이카 AI 블로그 생성기</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 20px; }
+        .wrap { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; color: #1a1a2e; padding: 20px 0 5px; font-size: 22px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 13px; }
+        .error-box { background: #fff0f0; border: 1px solid #f5c6c6; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #c0392b; font-size: 14px; }
+        .tab-wrap { display: flex; gap: 6px; margin-bottom: 0; }
+        .tab-btn { flex: 1; padding: 12px; font-size: 14px; font-weight: bold; border: 2px solid #ddd; border-bottom: none; border-radius: 8px 8px 0 0; background: #e9ecef; cursor: pointer; color: #666; font-family: inherit; transition: all 0.2s; }
+        .tab-btn.active { background: #fff; color: #e63946; border-color: #e63946; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .card { background: #fff; border-radius: 0 0 10px 10px; padding: 22px 26px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border: 2px solid #e63946; border-top: none; }
+        .card h2 { font-size: 15px; color: #333; border-left: 4px solid #e63946; padding-left: 10px; margin-bottom: 16px; }
+        .row { display: flex; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 180px; }
+        .form-group label { display: block; font-size: 12px; color: #555; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 9px 11px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
+        .form-group textarea { resize: vertical; height: 70px; }
+        .req { color: #e63946; }
+        .price-section { background: #f8f9fa; border-radius: 8px; padding: 16px; margin-top: 6px; }
+        .price-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .price-row label { font-size: 12px; font-weight: bold; color: #444; width: 90px; flex-shrink: 0; }
+        .price-row input { flex: 1; min-width: 130px; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
+        .price-row select { width: 130px; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
+        .tip { font-size: 11px; color: #888; margin-top: 4px; }
+        .raw-guide { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; font-size: 13px; line-height: 1.8; color: #555; }
+        .raw-guide strong { color: #e63946; }
+        textarea#rawText { width: 100%; height: 340px; padding: 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; line-height: 1.8; resize: vertical; font-family: 'Malgun Gothic', sans-serif; }
+        textarea#rawText:focus { outline: none; border-color: #e63946; }
+        .btn-submit { display: block; width: 100%; padding: 15px; background: linear-gradient(135deg, #e63946, #c1121f); color: #fff; border: none; border-radius: 8px; font-size: 17px; font-weight: bold; cursor: pointer; margin-top: 10px; font-family: inherit; }
+        .btn-submit:hover { opacity: 0.9; }
+
+        /* ── 생성 모달 ── */
+        #gen-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; }
+        #gen-modal.show { display: flex; }
+        .modal-box { background: #fff; border-radius: 16px; padding: 36px 40px; text-align: center; width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+        .modal-icon { font-size: 40px; margin-bottom: 12px; }
+        .modal-title { font-size: 16px; font-weight: bold; color: #1a1a2e; margin-bottom: 6px; }
+        .modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; }
+        .circle-wrap { position: relative; width: 100px; height: 100px; margin: 0 auto 16px; }
+        .circle-wrap svg { transform: rotate(-90deg); }
+        .circle-bg { fill: none; stroke: #f0f0f0; stroke-width: 8; }
+        .circle-progress { fill: none; stroke: #e63946; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+        .circle-time { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; color: #e63946; }
+        .modal-msg { font-size: 13px; color: #555; min-height: 20px; }
+        .modal-bar-wrap { background: #f0f0f0; border-radius: 20px; height: 6px; margin-top: 16px; overflow: hidden; }
+        .modal-bar { height: 100%; background: linear-gradient(90deg,#e63946,#f4a261); border-radius: 20px; width: 0%; transition: width 1s linear; }
+
+        /* ── 사용량 배너 ── */
+        .usage-banner { background: #fff; border-radius: 10px; padding: 14px 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .usage-label { font-size: 13px; font-weight: bold; color: #333; white-space: nowrap; }
+        .usage-bar-wrap { flex: 1; min-width: 160px; background: #e9ecef; border-radius: 20px; height: 10px; overflow: hidden; }
+        .usage-bar { height: 100%; border-radius: 20px; transition: width 0.4s; }
+        .usage-bar.safe    { background: #34a853; }
+        .usage-bar.warning { background: #fbbc04; }
+        .usage-bar.danger  { background: #e63946; }
+        .usage-text { font-size: 13px; color: #555; white-space: nowrap; }
+        .usage-text strong { color: #e63946; }
+    </style>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: bar}"></div>
+<div class="wrap">
+    <h1>🚗 렌트제이카 AI 블로그 포스팅 생성기</h1>
+    <p class="subtitle">차량 정보를 입력하면 블로그 포스팅 + 견적서를 자동으로 생성합니다</p>
+
+    <div style="text-align:center; margin-bottom:16px;">
+        <a th:if="${me != null and me.seo}" href="/seo" style="display:inline-block; padding:8px 20px; background:#34a853; color:#fff; border-radius:20px; font-size:13px; font-weight:bold; text-decoration:none;">
+            🍽️ 맛집 블로그 SEO 분석기 바로가기
+        </a>
+        <a th:if="${me != null and me.estate}" href="/estate" style="display:inline-block; padding:8px 20px; background:#1d4e89; color:#fff; border-radius:20px; font-size:13px; font-weight:bold; text-decoration:none; margin-left:6px;">
+            🏢 분양 블로그 도우미 바로가기
+        </a>
+    </div>
+
+    <!-- ── 생성 모달 ── -->
+    <div id="gen-modal">
+        <div class="modal-box">
+            <div class="modal-icon">🤖</div>
+            <div class="modal-title">AI 블로그 포스팅 생성 중</div>
+            <div class="modal-sub">Gemini가 열심히 글을 쓰고 있어요!</div>
+            <div class="circle-wrap">
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                    <circle class="circle-bg" cx="50" cy="50" r="42"/>
+                    <circle class="circle-progress" id="circle-prog" cx="50" cy="50" r="42"
+                            stroke-dasharray="264" stroke-dashoffset="0"/>
+                </svg>
+                <div class="circle-time" id="circle-time">--</div>
+            </div>
+            <div class="modal-msg" id="modal-msg">요청을 전송하고 있어요...</div>
+            <div class="modal-bar-wrap">
+                <div class="modal-bar" id="modal-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 에러 메시지 -->
+    <div th:if="${errorMsg}" class="error-box" th:text="${errorMsg}"></div>
+
+    <!-- 사용량 배너 -->
+    <div class="usage-banner">
+        <span class="usage-label">📊 오늘 남은 횟수</span>
+        <div class="usage-bar-wrap">
+            <div class="usage-bar"
+                 th:classappend="${dailyLimit > 0 and remainingCount > dailyLimit * 0.5 ? 'safe' : (dailyLimit > 0 and remainingCount > dailyLimit * 0.2 ? 'warning' : 'danger')}"
+                 th:style="'width:' + ${dailyLimit > 0 ? (remainingCount * 100 / dailyLimit) : 0} + '%'"></div>
+        </div>
+        <span class="usage-text">
+            <strong th:text="${remainingCount}"></strong>
+            <span th:text="'/' + ${dailyLimit} + '회 남음'"></span>
+            &nbsp;(오늘 <span th:text="${usedCount}"></span>회 사용)
+        </span>
+    </div>
+
+    <!-- 탭 버튼 -->
+    <div class="tab-wrap">
+        <button class="tab-btn active" type="button" onclick="switchTab('form', this)">📋 폼 입력 방식</button>
+        <button class="tab-btn" type="button" onclick="switchTab('text', this)">📝 텍스트 붙여넣기 방식</button>
+    </div>
+
+    <!-- 탭 1: 폼 입력 방식 -->
+    <div id="tab-form" class="tab-panel active">
+        <div class="card">
+            <form id="form-main" th:action="@{/generate}" th:object="${blogRequest}" method="post">
+                <h2>📋 차량 기본 정보</h2>
+                <div class="row">
+                    <div class="form-group">
+                        <label>관리번호</label>
+                        <input type="text" th:field="*{carNo}" placeholder="예: 191호6313">
+                    </div>
+                    <div class="form-group">
+                        <label>제조사 <span class="req">*</span></label>
+                        <select th:field="*{brand}" required>
+                            <option value="">-- 선택 --</option>
+                            <option value="제네시스">제네시스</option>
+                            <option value="현대">현대</option>
+                            <option value="기아">기아</option>
+                            <option value="쉐보레">쉐보레</option>
+                            <option value="르노코리아">르노코리아</option>
+                            <option value="KG모빌리티">KG모빌리티</option>
+                            <option value="BMW">BMW</option>
+                            <option value="벤츠">벤츠</option>
+                            <option value="아우디">아우디</option>
+                            <option value="볼보">볼보</option>
+                            <option value="렉서스">렉서스</option>
+                            <option value="테슬라">테슬라</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>모델명 <span class="req">*</span></label>
+                        <input type="text" th:field="*{carModel}" placeholder="예: G80" required>
+                    </div>
+                    <div class="form-group">
+                        <label>트림/엔진 <span class="req">*</span></label>
+                        <input type="text" th:field="*{trim}" placeholder="예: 2.5T 가솔린 AWD" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>연식 <span class="req">*</span></label>
+                        <input type="text" th:field="*{year}" placeholder="예: 2023" required>
+                    </div>
+                    <div class="form-group">
+                        <label>등록월</label>
+                        <input type="text" th:field="*{regDate}" placeholder="예: 23년02월식">
+                    </div>
+                    <div class="form-group">
+                        <label>주행거리 (KM) <span class="req">*</span></label>
+                        <input type="text" th:field="*{mileage}" placeholder="예: 81,704" required>
+                    </div>
+                    <div class="form-group">
+                        <label>사고유무</label>
+                        <select th:field="*{accident}">
+                            <option value="무사고">무사고</option>
+                            <option value="단순교환">단순교환</option>
+                            <option value="수리이력있음">수리이력있음</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="form-group">
+                        <label>색상</label>
+                        <input type="text" th:field="*{color}" placeholder="예: 비크 블랙">
+                    </div>
+                    <div class="form-group">
+                        <label>추가 옵션</label>
+                        <input type="text" th:field="*{extraOptions}" placeholder="예: 파퓰러 패키지, 빌트인 캠 패키지">
+                    </div>
+                    <div class="form-group">
+                        <label>신차 출고가 (원)</label>
+                        <input type="text" th:field="*{newPrice}" placeholder="예: 63,720,000">
+                    </div>
+                </div>
+
+                <h2 style="margin-top:20px;">💰 렌탈 조건</h2>
+                <div class="row">
+                    <div class="form-group">
+                        <label>담보(보증금)</label>
+                        <select th:field="*{deposit}">
+                            <option value="무보증">무보증</option>
+                            <option value="500만원">500만원</option>
+                            <option value="1,000만원">1,000만원</option>
+                            <option value="협의">협의</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>계약기간 <span class="req">*</span></label>
+                        <select th:field="*{contractPeriod}" required>
+                            <option value="12개월">12개월</option>
+                            <option value="24개월">24개월</option>
+                            <option value="36개월">36개월</option>
+                            <option value="48개월">48개월</option>
+                            <option value="60개월">60개월</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>인수 잔존가치 (원)</label>
+                        <input type="text" th:field="*{residualValue}" placeholder="예: 32,982,000">
+                        <p class="tip">계약 종료 후 인수 가격</p>
+                    </div>
+                </div>
+                <div class="price-section">
+                    <p style="font-size:13px;font-weight:bold;color:#333;margin-bottom:12px;">📌 고객 유형별 월 렌탈료</p>
+                    <div class="price-row">
+                        <label>법인</label>
+                        <input type="text" th:field="*{priceCorpRate}" placeholder="월렌탈료 (원)">
+                        <select th:field="*{kmCorp}">
+                            <option value="연간 1만KM">연간 1만KM</option>
+                            <option value="연간 2만KM">연간 2만KM</option>
+                            <option value="연간 3만KM">연간 3만KM</option>
+                            <option value="무제한">무제한</option>
+                        </select>
+                    </div>
+                    <div class="price-row">
+                        <label>개인사업자</label>
+                        <input type="text" th:field="*{priceBizRate}" placeholder="월렌탈료 (원)">
+                        <select th:field="*{kmBiz}">
+                            <option value="연간 1만KM">연간 1만KM</option>
+                            <option value="연간 2만KM">연간 2만KM</option>
+                            <option value="연간 3만KM">연간 3만KM</option>
+                            <option value="무제한">무제한</option>
+                        </select>
+                    </div>
+                    <div class="price-row">
+                        <label>개인</label>
+                        <input type="text" th:field="*{pricePersonal}" placeholder="월렌탈료 (원)">
+                        <select th:field="*{kmPersonal}">
+                            <option value="연간 1만KM">연간 1만KM</option>
+                            <option value="연간 2만KM">연간 2만KM</option>
+                            <option value="연간 3만KM">연간 3만KM</option>
+                            <option value="무제한">무제한</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h2 style="margin-top:20px;">✍️ 포스팅 설정</h2>
+                <div class="row">
+                    <div class="form-group">
+                        <label>포스팅 톤</label>
+                        <select th:field="*{tone}">
+                            <option value="친근한">친근하고 대화체</option>
+                            <option value="전문적">전문적이고 신뢰감</option>
+                            <option value="캐주얼">캐주얼하고 감성적</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>강조 포인트</label>
+                        <select th:field="*{highlight}">
+                            <option value="가성비">가성비 (신차 대비 저렴한 비용)</option>
+                            <option value="프리미엄">프리미엄 (고급 옵션, 브랜드)</option>
+                            <option value="실용성">실용성 (주행거리, 유지비)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>추가 메모 (선택)</label>
+                        <textarea th:field="*{memo}" placeholder="예: 이번 달 특가, 즉시 출고 가능 등"></textarea>
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit">🤖 AI 블로그 포스팅 + 견적서 생성하기</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 탭 2: 텍스트 붙여넣기 방식 -->
+    <div id="tab-text" class="tab-panel">
+        <div class="card">
+            <h2>📝 차량 정보 텍스트 붙여넣기</h2>
+            <div class="raw-guide">
+                아래 textarea에 차량 정보를 <strong>그대로 복사해서 붙여넣기</strong> 하세요.<br>
+                AI가 자동으로 분석해서 블로그 포스팅 글을 생성합니다.<br><br>
+                <strong>입력 예시:</strong><br>
+                [191호6313]<br>
+                2023 G80 2.5T 가솔린 AWD<br>
+                23년02월식 / 81,704KM / 무사고<br>
+                추가옵션 - 파퓰러 패키지, 빌트인 캠 패키지<br>
+                색상 - 비크 블랙 / 신차가 - 63,720,000원<br>
+                담보 - 무보증 / 12개월 계약기준<br>
+                법인 연간1만KM 월렌탈료 - 670,800원 / 개인사업자 연간1만KM 월렌탈료 - 703,200원<br>
+                개인 연간1만KM 월렌탈료 - 712,200원 / 인수시 잔존가치 - 32,982,000원
+            </div>
+            <form id="form-text" th:action="@{/generate-from-text}" method="post">
+                <textarea id="rawText" name="rawText"
+                          th:text="${rawText}"
+                          placeholder="여기에 차량 정보를 붙여넣기 하세요..."></textarea>
+                <button type="submit" class="btn-submit" style="margin-top:14px;">
+                    🤖 텍스트로 AI 블로그 포스팅 생성하기
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ── 탭 전환 ── */
+    function switchTab(mode, btn) {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+        document.getElementById('tab-' + mode).classList.add('active');
+    }
+
+    /* ── 모달 변수 ── */
+    var modalTimer = null;
+    var modalElapsed = 0;
+    var MODAL_TOTAL = 60; // 고정 1분
+    var MESSAGES = [
+        '차량 정보를 분석하고 있어요...',
+        'SEO 키워드를 선정 중이에요...',
+        '도입부를 작성하고 있어요...',
+        '차량 상세 내용을 정리 중이에요...',
+        '렌탈 조건을 비교 분석 중이에요...',
+        '가성비 분석 중이에요...',
+        '마무리 문구를 다듬고 있어요...',
+        '거의 다 됐어요! 조금만 기다려주세요 😊'
+    ];
+
+    /* ── 모달 시작 ── */
+    function startModal() {
+        modalElapsed = 0;
+        document.getElementById('modal-bar').style.width = '0%';
+        document.getElementById('modal-msg').textContent = MESSAGES[0];
+        document.getElementById('gen-modal').classList.add('show');
+        updateCircle(MODAL_TOTAL);
+
+        if (modalTimer) clearInterval(modalTimer);
+        modalTimer = setInterval(function() {
+            modalElapsed++;
+            var remaining = Math.max(0, MODAL_TOTAL - modalElapsed);
+            updateCircle(remaining);
+            updateMessage(modalElapsed);
+            // 60초 지나도 완료 안되면 타이머 멈추고 대기 메시지
+            if (modalElapsed >= MODAL_TOTAL) {
+                clearInterval(modalTimer);
+                document.getElementById('circle-time').textContent = '⏳';
+                document.getElementById('modal-msg').textContent = '거의 다 됐어요! 잠시만 기다려주세요...';
+                document.getElementById('modal-bar').style.width = '99%';
+            } else {
+                var pct = (modalElapsed / MODAL_TOTAL) * 100;
+                document.getElementById('modal-bar').style.width = pct + '%';
+            }
+        }, 1000);
+    }
+
+    /* ── 원형 타이머 업데이트 ── */
+    function updateCircle(remaining) {
+        var prog = document.getElementById('circle-prog');
+        var timeEl = document.getElementById('circle-time');
+        var ratio = remaining / MODAL_TOTAL;
+        prog.style.strokeDashoffset = 264 * (1 - ratio);
+        timeEl.textContent = remaining + 's';
+        var color = ratio > 0.5 ? '#34a853' : ratio > 0.2 ? '#fbbc04' : '#e63946';
+        prog.style.stroke = color;
+        timeEl.style.color = color;
+    }
+
+    /* ── 상태 메시지 업데이트 ── */
+    function updateMessage(elapsed) {
+        var idx = Math.min(MESSAGES.length - 1,
+            Math.floor(elapsed / (MODAL_TOTAL / MESSAGES.length)));
+        document.getElementById('modal-msg').textContent = MESSAGES[idx];
+    }
+
+    /* ── 페이지 로드 ── */
+    window.onload = function() {
+        var returnTab = /*[[${returnTab}]]*/ null;
+        if (returnTab === 'text') {
+            switchTab('text', document.querySelectorAll('.tab-btn')[1]);
+        }
+
+        document.getElementById('form-main').addEventListener('submit', function(e) {
+            e.preventDefault();
+            startModal();
+            setTimeout(function() { document.getElementById('form-main').submit(); }, 100);
+        });
+
+        document.getElementById('form-text').addEventListener('submit', function(e) {
+            var txt = document.getElementById('rawText').value.trim();
+            if (!txt) return;
+            e.preventDefault();
+            startModal();
+            setTimeout(function() { document.getElementById('form-text').submit(); }, 100);
+        });
+    };
+</script>
+</body>
+</html>

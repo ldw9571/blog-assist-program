@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>포스팅 결과 - 렌트제이카</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 20px; }
+    .wrap { max-width: 950px; margin: 0 auto; }
+    h1 { text-align: center; color: #1a1a2e; padding: 20px 0 5px; font-size: 20px; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 13px; }
+    .card { background: #fff; border-radius: 10px; padding: 22px 26px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .card h2 { font-size: 15px; color: #333; border-left: 4px solid #e63946; padding-left: 10px; margin-bottom: 16px; }
+    textarea.result-box { width: 100%; height: 420px; padding: 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; line-height: 1.8; font-family: 'Malgun Gothic', sans-serif; resize: vertical; }
+    .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .btn { padding: 10px 22px; border: none; border-radius: 7px; font-size: 13px; cursor: pointer; font-family: inherit; }
+    .btn-copy  { background: #457b9d; color: #fff; }
+    .btn-back  { background: #6c757d; color: #fff; }
+    .btn-print { background: #2d6a4f; color: #fff; }
+    .btn-img   { background: #f4a261; color: #fff; }
+    .btn-img:disabled { background: #ccc; cursor: not-allowed; }
+
+    .raw-preview { background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.8; color: #555; white-space: pre-wrap; max-height: 160px; overflow-y: auto; }
+
+    /* 견적서 */
+    .quote-title { font-size: 20px; font-weight: bold; text-align: center; color: #1a1a2e; margin-bottom: 6px; }
+    .quote-sub   { text-align: center; color: #666; font-size: 12px; margin-bottom: 18px; }
+    .quote-car   { background: #1a1a2e; color: #fff; border-radius: 8px; padding: 14px 20px; margin-bottom: 14px; }
+    .quote-car .car-name   { font-size: 17px; font-weight: bold; }
+    .quote-car .car-detail { font-size: 12px; color: #ccc; margin-top: 5px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .info-item { background: #f8f9fa; border-radius: 6px; padding: 9px 12px; }
+    .info-item .lbl { font-size: 11px; color: #888; }
+    .info-item .val { font-size: 13px; font-weight: bold; color: #333; margin-top: 2px; }
+    .quote-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    .quote-table th { background: #f8f9fa; padding: 9px 12px; text-align: left; font-size: 12px; color: #555; border-bottom: 2px solid #dee2e6; }
+    .quote-table td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+    .quote-table .price { font-weight: bold; color: #e63946; font-size: 15px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 6px; }
+    .badge-corp     { background: #d0e8ff; color: #1565c0; }
+    .badge-biz      { background: #d4edda; color: #155724; }
+    .badge-personal { background: #fff3cd; color: #856404; }
+    .quote-footer { text-align: center; font-size: 12px; color: #888; border-top: 1px dashed #ddd; padding-top: 12px; margin-top: 6px; }
+    .car-no { text-align: right; font-size: 11px; color: #aaa; margin-bottom: 8px; }
+
+    .mode-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; margin-left: 8px; vertical-align: middle; }
+    .mode-badge-text { background: #e8f5e9; color: #2e7d32; }
+    .mode-badge-form { background: #e3f2fd; color: #1565c0; }
+
+    /* 사용량 배너 */
+    .usage-banner { background: #fff; border-radius: 10px; padding: 14px 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .usage-label { font-size: 13px; font-weight: bold; color: #333; white-space: nowrap; }
+    .usage-bar-wrap { flex: 1; min-width: 160px; background: #e9ecef; border-radius: 20px; height: 10px; overflow: hidden; }
+    .usage-bar { height: 100%; border-radius: 20px; }
+    .usage-bar.safe    { background: #34a853; }
+    .usage-bar.warning { background: #fbbc04; }
+    .usage-bar.danger  { background: #e63946; }
+    .usage-text { font-size: 13px; color: #555; white-space: nowrap; }
+    .usage-text strong { color: #e63946; }
+
+    /* 이미지 변환 로딩 */
+    #img-loading { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; gap: 14px; }
+    #img-loading.show { display: flex; }
+    #img-loading p { color: #fff; font-size: 15px; font-weight: bold; }
+    .spinner { width: 42px; height: 42px; border: 4px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: bar}"></div>
+
+<div id="img-loading">
+  <div class="spinner"></div>
+  <p>📸 견적서 이미지 생성 중...</p>
+</div>
+
+<div class="wrap">
+  <h1>
+    ✅ 포스팅 생성 완료
+    <span th:if="${mode == 'text'}" class="mode-badge mode-badge-text">텍스트 입력</span>
+    <span th:if="${mode == 'form'}" class="mode-badge mode-badge-form">폼 입력</span>
+  </h1>
+
+  <!-- 부제목 -->
+  <p class="subtitle"
+     th:if="${mode == 'form' and dto != null}"
+     th:text="${dto.year + '년 ' + dto.brand + ' ' + dto.carModel + ' ' + dto.trim}"></p>
+  <p class="subtitle"
+     th:if="${mode == 'text' and parsedDto != null and parsedDto.carModel != null and !parsedDto.carModel.isEmpty()}"
+     th:text="${parsedDto.year + '년 ' + parsedDto.brand + ' ' + parsedDto.carModel + ' ' + parsedDto.trim}"></p>
+  <p class="subtitle" th:if="${mode == 'text' and (parsedDto == null or parsedDto.carModel == null or parsedDto.carModel.isEmpty())}">텍스트 분석 → 블로그 포스팅 생성</p>
+
+  <!-- 사용량 배너 -->
+  <div class="usage-banner">
+    <span class="usage-label">📊 오늘 남은 횟수</span>
+    <div class="usage-bar-wrap">
+      <div class="usage-bar"
+           th:classappend="${dailyLimit > 0 and remainingCount > dailyLimit * 0.5 ? 'safe' : (dailyLimit > 0 and remainingCount > dailyLimit * 0.2 ? 'warning' : 'danger')}"
+           th:style="'width:' + ${dailyLimit > 0 ? (remainingCount * 100 / dailyLimit) : 0} + '%'"></div>
+    </div>
+    <span class="usage-text">
+      <strong th:text="${remainingCount}"></strong>
+      <span th:text="'/' + ${dailyLimit} + '회 남음'"></span>
+      &nbsp;(오늘 <span th:text="${usedCount}"></span>회 사용)
+    </span>
+  </div>
+
+  <!-- 블로그 포스팅 본문 -->
+  <div class="card">
+    <h2>📝 블로그 포스팅 본문</h2>
+    <textarea class="result-box" id="blog_result" th:text="${result}"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-copy" onclick="copyText()">📋 본문 복사</button>
+      <button class="btn btn-print" onclick="printQuote()">🖨️ 견적서 인쇄</button>
+      <button class="btn btn-img" id="btn-save-img" onclick="saveQuoteAsImage()">📸 견적서 JPG 저장</button>
+      <a th:if="${mode == 'form'}" th:href="@{/}">
+        <button type="button" class="btn btn-back">← 다시 입력 (폼)</button>
+      </a>
+      <a th:if="${mode == 'text'}" th:href="@{/?tab=text}">
+        <button type="button" class="btn btn-back">← 다시 입력 (텍스트)</button>
+      </a>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 견적서 - 폼 모드 (dto 사용)               -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="card" th:if="${mode == 'form' and dto != null}">
+    <h2>📄 견적서 (포스팅 첨부용)</h2>
+    <div id="quote_capture">
+      <div class="quote-title">중고 장기렌트 견적서</div>
+      <div class="quote-sub">렌트제이카 | blog.naver.com/rentcarinfo</div>
+      <div class="quote-car">
+        <div class="car-name" th:text="${dto.year + '년 ' + dto.brand + ' ' + dto.carModel + ' ' + dto.trim}"></div>
+        <div class="car-detail">
+          <span th:text="${dto.regDate}"></span> &nbsp;|&nbsp;
+          <span th:text="${dto.mileage}"></span>KM &nbsp;|&nbsp;
+          <span th:text="${dto.accident}"></span> &nbsp;|&nbsp;
+          <span th:text="${dto.color}"></span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><div class="lbl">신차 출고가</div><div class="val" th:text="${dto.newPrice + '원'}"></div></div>
+        <div class="info-item"><div class="lbl">추가 옵션</div><div class="val" th:text="${dto.extraOptions}"></div></div>
+        <div class="info-item"><div class="lbl">계약기간</div><div class="val" th:text="${dto.contractPeriod}"></div></div>
+        <div class="info-item"><div class="lbl">담보(보증금)</div><div class="val" th:text="${dto.deposit}"></div></div>
+        <div class="info-item" style="grid-column:span 2;"><div class="lbl">계약 종료 후 인수가 (잔존가치)</div><div class="val" th:text="${dto.residualValue + '원'}"></div></div>
+      </div>
+      <table class="quote-table">
+        <tr><th>고객 유형</th><th>약정 주행거리</th><th>월 렌탈료</th></tr>
+        <tr th:if="${dto.priceCorpRate != null and !dto.priceCorpRate.isEmpty()}">
+          <td>법인 <span class="badge badge-corp">법인</span></td>
+          <td th:text="${dto.kmCorp}"></td>
+          <td class="price" th:text="${dto.priceCorpRate + '원'}"></td>
+        </tr>
+        <tr th:if="${dto.priceBizRate != null and !dto.priceBizRate.isEmpty()}">
+          <td>개인사업자 <span class="badge badge-biz">사업자</span></td>
+          <td th:text="${dto.kmBiz}"></td>
+          <td class="price" th:text="${dto.priceBizRate + '원'}"></td>
+        </tr>
+        <tr th:if="${dto.pricePersonal != null and !dto.pricePersonal.isEmpty()}">
+          <td>개인 <span class="badge badge-personal">개인</span></td>
+          <td th:text="${dto.kmPersonal}"></td>
+          <td class="price" th:text="${dto.pricePersonal + '원'}"></td>
+        </tr>
+      </table>
+      <div class="car-no" th:if="${dto.carNo != null and !dto.carNo.isEmpty()}" th:text="'관리번호: ' + ${dto.carNo}"></div>
+      <div class="quote-footer">본 견적은 렌탈사 심사 및 시장 상황에 따라 변동될 수 있습니다.<br>📞 자세한 상담은 렌트제이카로 문의해 주세요 | blog.naver.com/rentcarinfo</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 견적서 - 텍스트 모드 (parsedDto 사용)      -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="card" th:if="${mode == 'text' and parsedDto != null}">
+    <h2>📄 견적서 (AI 파싱 결과)</h2>
+    <div id="quote_capture">
+      <div class="quote-title">중고 장기렌트 견적서</div>
+      <div class="quote-sub">렌트제이카 | blog.naver.com/rentcarinfo</div>
+      <div class="quote-car">
+        <div class="car-name" th:text="${parsedDto.year + '년 ' + parsedDto.brand + ' ' + parsedDto.carModel + ' ' + parsedDto.trim}"></div>
+        <div class="car-detail">
+          <span th:text="${parsedDto.regDate}"></span> &nbsp;|&nbsp;
+          <span th:text="${parsedDto.mileage}"></span> &nbsp;|&nbsp;
+          <span th:text="${parsedDto.accident}"></span> &nbsp;|&nbsp;
+          <span th:text="${parsedDto.color}"></span>
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="info-item"><div class="lbl">신차 출고가</div><div class="val" th:text="${parsedDto.newPrice + '원'}"></div></div>
+        <div class="info-item"><div class="lbl">추가 옵션</div><div class="val" th:text="${parsedDto.extraOptions}"></div></div>
+        <div class="info-item"><div class="lbl">계약기간</div><div class="val" th:text="${parsedDto.contractPeriod}"></div></div>
+        <div class="info-item"><div class="lbl">담보(보증금)</div><div class="val" th:text="${parsedDto.deposit}"></div></div>
+        <div class="info-item" style="grid-column:span 2;"><div class="lbl">계약 종료 후 인수가 (잔존가치)</div><div class="val" th:text="${parsedDto.residualValue + '원'}"></div></div>
+      </div>
+      <table class="quote-table">
+        <tr><th>고객 유형</th><th>약정 주행거리</th><th>월 렌탈료</th></tr>
+        <tr th:if="${parsedDto.priceCorpRate != null and !parsedDto.priceCorpRate.isEmpty()}">
+          <td>법인 <span class="badge badge-corp">법인</span></td>
+          <td th:text="${parsedDto.kmCorp}"></td>
+          <td class="price" th:text="${parsedDto.priceCorpRate + '원'}"></td>
+        </tr>
+        <tr th:if="${parsedDto.priceBizRate != null and !parsedDto.priceBizRate.isEmpty()}">
+          <td>개인사업자 <span class="badge badge-biz">사업자</span></td>
+          <td th:text="${parsedDto.kmBiz}"></td>
+          <td class="price" th:text="${parsedDto.priceBizRate + '원'}"></td>
+        </tr>
+        <tr th:if="${parsedDto.pricePersonal != null and !parsedDto.pricePersonal.isEmpty()}">
+          <td>개인 <span class="badge badge-personal">개인</span></td>
+          <td th:text="${parsedDto.kmPersonal}"></td>
+          <td class="price" th:text="${parsedDto.pricePersonal + '원'}"></td>
+        </tr>
+      </table>
+      <div class="car-no" th:if="${parsedDto.carNo != null and !parsedDto.carNo.isEmpty()}" th:text="'관리번호: ' + ${parsedDto.carNo}"></div>
+      <div class="quote-footer">본 견적은 렌탈사 심사 및 시장 상황에 따라 변동될 수 있습니다.<br>📞 자세한 상담은 렌트제이카로 문의해 주세요 | blog.naver.com/rentcarinfo</div>
+    </div>
+  </div>
+
+  <!-- 원본 텍스트 확인 (텍스트 모드 전용) -->
+  <div class="card" th:if="${mode == 'text' and rawText != null}">
+    <h2>📌 입력하신 원본 텍스트</h2>
+    <div class="raw-preview" th:text="${rawText}"></div>
+  </div>
+
+</div>
+
+<script>
+  // 페이지 로드 시 금액 콤마 자동 포맷
+  window.onload = function() {
+    // .val 클래스 중 숫자+원 패턴인 요소에 콤마 적용
+    document.querySelectorAll('.val, .price').forEach(function(el) {
+      el.textContent = formatMoneyText(el.textContent);
+    });
+  };
+
+  // "670800원" → "670,800원" / "63720000" → "63,720,000원"
+  function formatMoneyText(text) {
+    if (!text) return text;
+    return text.replace(/(\d+)(원)?/g, function(match, num, won) {
+      var formatted = num.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return formatted + (won || '');
+    });
+  }
+
+  function copyText() {
+    var el = document.getElementById('blog_result');
+    el.select(); el.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+    alert('포스팅 본문이 복사되었습니다!\n네이버 블로그 에디터에 붙여넣기 하세요.');
+  }
+
+  function printQuote() {
+    var capture = document.getElementById('quote_capture');
+    if (!capture) { alert('견적서 영역을 찾을 수 없습니다.'); return; }
+    var section = capture.innerHTML;
+    var w = window.open('', '', 'width=700,height=900');
+    w.document.write('<html><head><title>견적서</title><style>');
+    w.document.write('body{font-family:Malgun Gothic,sans-serif;padding:30px;}');
+    w.document.write('.quote-title{font-size:20px;font-weight:bold;text-align:center;margin-bottom:6px;}');
+    w.document.write('.quote-sub{text-align:center;color:#666;font-size:12px;margin-bottom:18px;}');
+    w.document.write('.quote-car{background:#1a1a2e;color:#fff;border-radius:8px;padding:14px 20px;margin-bottom:14px;}');
+    w.document.write('.car-name{font-size:17px;font-weight:bold;}.car-detail{font-size:12px;color:#ccc;margin-top:5px;}');
+    w.document.write('.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}');
+    w.document.write('.info-item{background:#f8f9fa;border-radius:6px;padding:9px 12px;}');
+    w.document.write('.lbl{font-size:11px;color:#888;}.val{font-size:13px;font-weight:bold;color:#333;margin-top:2px;}');
+    w.document.write('table{width:100%;border-collapse:collapse;}th{background:#f8f9fa;padding:9px 12px;text-align:left;font-size:12px;border-bottom:2px solid #dee2e6;}td{padding:9px 12px;font-size:13px;border-bottom:1px solid #f0f0f0;}');
+    w.document.write('.price{font-weight:bold;color:#e63946;font-size:15px;}');
+    w.document.write('.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;margin-left:6px;}');
+    w.document.write('.badge-corp{background:#d0e8ff;color:#1565c0;}.badge-biz{background:#d4edda;color:#155724;}.badge-personal{background:#fff3cd;color:#856404;}');
+    w.document.write('.quote-footer{text-align:center;font-size:12px;color:#888;border-top:1px dashed #ddd;padding-top:12px;margin-top:6px;}');
+    w.document.write('</style></head><body>');
+    w.document.write(section);
+    w.document.write('</body></html>');
+    w.document.close(); w.focus(); w.print();
+  }
+
+  function saveQuoteAsImage() {
+    var target = document.getElementById('quote_capture');
+    if (!target) { alert('견적서 영역을 찾을 수 없습니다.'); return; }
+
+    var loading = document.getElementById('img-loading');
+    loading.classList.add('show');
+    var btn = document.getElementById('btn-save-img');
+    btn.disabled = true;
+    btn.textContent = '⏳ 생성 중...';
+
+    var carName = document.querySelector('.car-name');
+    var nameStr = carName ? carName.textContent.trim().replace(/\s+/g, '_') : '견적서';
+    var today = new Date();
+    var dateStr = today.getFullYear()
+            + ('0' + (today.getMonth() + 1)).slice(-2)
+            + ('0' + today.getDate()).slice(-2);
+    var fileName = '견적서_' + nameStr + '_' + dateStr + '.jpg';
+
+    html2canvas(target, {
+      scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
+    }).then(function(canvas) {
+      var jpgUrl = canvas.toDataURL('image/jpeg', 0.95);
+      var a = document.createElement('a');
+      a.href = jpgUrl; a.download = fileName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }).catch(function(err) {
+      alert('이미지 생성 중 오류: ' + err.message);
+    }).finally(function() {
+      loading.classList.remove('show');
+      btn.disabled = false;
+      btn.textContent = '📸 견적서 JPG 저장';
+    });
+  }
+</script>
+</body>
+</html>

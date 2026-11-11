@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+<style th:fragment="css">
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 40px 16px; color: #333; }
+  .box { max-width: 420px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 28px 28px 24px;
+         box-shadow: 0 2px 10px rgba(0,0,0,.07); }
+  .box.wide { max-width: 520px; }
+  h1 { font-size: 20px; color: #1a1a2e; text-align: center; margin-bottom: 4px; }
+  .sub { text-align: center; color: #777; font-size: 13px; margin-bottom: 22px; line-height: 1.6; }
+  label { display: block; font-size: 12px; font-weight: bold; color: #555; margin: 12px 0 5px; }
+  input[type=text], input[type=password] { width: 100%; padding: 11px 12px; border: 1px solid #ddd; border-radius: 7px;
+         font-size: 14px; font-family: inherit; }
+  input:focus { outline: none; border-color: #1d4e89; }
+  .hint { font-size: 11px; color: #999; margin-top: 4px; }
+  .btn { display: block; width: 100%; padding: 13px; margin-top: 20px; border: none; border-radius: 8px; cursor: pointer;
+         background: linear-gradient(135deg, #1d4e89, #163a66); color: #fff; font-size: 15px; font-weight: bold; font-family: inherit; }
+  .btn:hover { opacity: .92; }
+  .btn.gray { background: #eceff3; color: #444; }
+  .msg { padding: 11px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; line-height: 1.6; }
+  .msg.err { background: #fff0f0; border: 1px solid #f5c6c6; color: #c0392b; }
+  .msg.ok { background: #effaf2; border: 1px solid #bfe5c9; color: #1e7b3c; }
+  .msg.info { background: #eef4ff; border: 1px solid #c9dafc; color: #1d4e89; }
+  .foot { text-align: center; margin-top: 16px; font-size: 13px; color: #777; }
+  .foot a { color: #1d4e89; font-weight: bold; text-decoration: none; }
+</style>
+</head>
+</html>

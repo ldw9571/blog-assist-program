@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- 공통 상단 바: 로그인한 회원 / 이용기간 / 메뉴 / 로그아웃 -->
+<div th:fragment="bar" th:if="${me != null}" class="topbar-x">
+  <style>
+    .topbar-x { max-width: 950px; margin: 0 auto 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+                background: #fff; border-radius: 10px; padding: 9px 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+                font-family: 'Malgun Gothic', sans-serif; font-size: 13px; color: #444; }
+    .topbar-x .tb-user { font-weight: bold; color: #1a1a2e; }
+    .topbar-x .tb-period { padding: 3px 9px; border-radius: 12px; background: #eef4ff; color: #1d4e89; font-size: 12px; }
+    .topbar-x .tb-period.soon { background: #fff3e0; color: #e65100; }
+    .topbar-x .tb-sp { flex: 1; }
+    .topbar-x a { color: #555; text-decoration: none; }
+    .topbar-x a:hover { color: #e63946; }
+    .topbar-x .tb-admin { color: #fff; background: #1a1a2e; padding: 4px 10px; border-radius: 12px; font-size: 12px; }
+    .topbar-x .tb-admin:hover { color: #fff; opacity: .85; }
+    .topbar-x form { display: inline; margin: 0; }
+    .topbar-x button { background: none; border: 1px solid #ddd; border-radius: 12px; padding: 3px 10px; cursor: pointer;
+                       font-family: inherit; font-size: 12px; color: #666; }
+  </style>
+  <span class="tb-user" th:text="${me.displayName} + ' 님'">회원 님</span>
+  <span th:if="${me.hasExpiry()}" class="tb-period" th:classappend="${me.daysLeft <= 5} ? 'soon'"
+        th:text="'이용기간 ~ ' + ${me.expiresAt} + ' (' + (${me.daysLeft} == 0 ? '오늘까지' : ${me.daysLeft} + '일 남음') + ')'"></span>
+  <span class="tb-sp"></span>
+  <a th:if="${me.admin}" class="tb-admin" th:href="@{/admin}">⚙️ 관리자</a>
+  <a th:href="@{/account}">내 정보</a>
+  <form th:action="@{/logout}" method="post"><button type="submit">로그아웃</button></form>
+</div>
+
+</body>
+</html>

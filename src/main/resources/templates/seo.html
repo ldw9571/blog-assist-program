@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>콘텐츠 블로그 도우미 - 렌트제이카</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 20px; }
+        .wrap { max-width: 900px; margin: 0 auto; }
+        h1 { text-align: center; color: #1a1a2e; padding: 20px 0 5px; font-size: 22px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 16px; font-size: 13px; }
+        .nav-link { text-align: center; margin-bottom: 20px; }
+        .nav-link a { color: #e63946; text-decoration: none; font-size: 13px; font-weight: bold; margin: 0 10px; }
+        .nav-link a:hover { text-decoration: underline; }
+        .error-box { background: #fff0f0; border: 1px solid #f5c6c6; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #c0392b; font-size: 14px; }
+
+        /* 사용량 배너 */
+        .usage-banner { background: #fff; border-radius: 10px; padding: 14px 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .usage-label { font-size: 13px; font-weight: bold; color: #333; white-space: nowrap; }
+        .usage-bar-wrap { flex: 1; min-width: 160px; background: #e9ecef; border-radius: 20px; height: 10px; overflow: hidden; }
+        .usage-bar { height: 100%; border-radius: 20px; transition: width 0.4s; }
+        .usage-bar.safe    { background: #34a853; }
+        .usage-bar.warning { background: #fbbc04; }
+        .usage-bar.danger  { background: #e63946; }
+        .usage-text { font-size: 13px; color: #555; white-space: nowrap; }
+        .usage-text strong { color: #e63946; }
+
+        /* 탭 */
+        .tab-wrap { display: flex; gap: 6px; margin-bottom: 0; }
+        .tab-btn { flex: 1; padding: 12px; font-size: 14px; font-weight: bold; border: 2px solid #ddd; border-bottom: none; border-radius: 8px 8px 0 0; background: #e9ecef; cursor: pointer; color: #666; font-family: inherit; transition: all 0.2s; }
+        .tab-btn.active { background: #fff; color: #e63946; border-color: #e63946; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* 카드 */
+        .card { background: #fff; border-radius: 0 0 10px 10px; padding: 22px 26px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border: 2px solid #e63946; border-top: none; }
+        .card h2 { font-size: 15px; color: #333; border-left: 4px solid #e63946; padding-left: 10px; margin-bottom: 16px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px; }
+        .form-group input, .form-group select, .form-group textarea {
+          width: 100%; padding: 10px 12px; border: 1px solid #ddd;
+          border-radius: 6px; font-size: 13px; font-family: inherit;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #e63946; }
+        .form-group textarea { height: 280px; resize: vertical; line-height: 1.7; }
+        .row2 { display: flex; gap: 14px; }
+        .row2 .form-group { flex: 1; }
+        .tip { font-size: 11px; color: #888; margin-top: 4px; }
+        .btn-submit { display: block; width: 100%; padding: 15px; background: linear-gradient(135deg, #e63946, #c1121f); color: #fff; border: none; border-radius: 8px; font-size: 17px; font-weight: bold; cursor: pointer; margin-top: 10px; font-family: inherit; }
+        .btn-submit:hover { opacity: 0.9; }
+
+        /* 결과 카드 */
+        .result-card { background: #fff; border-radius: 10px; padding: 24px 28px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+        .result-card h2 { font-size: 15px; color: #333; border-left: 4px solid #34a853; padding-left: 10px; margin-bottom: 16px; }
+        .result-text { white-space: pre-wrap; font-size: 14px; line-height: 1.9; color: #333; }
+        .post-render { white-space: pre-wrap; font-size: 14px; line-height: 1.9; color: #333; background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 16px; max-height: 600px; overflow-y: auto; }
+        .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .btn { padding: 10px 22px; border: none; border-radius: 7px; font-size: 13px; cursor: pointer; font-family: inherit; }
+        .btn-copy  { background: #457b9d; color: #fff; }
+        .btn-green { background: #34a853; color: #fff; }
+        .btn-reset { background: #6c757d; color: #fff; }
+
+        /* 모달 */
+        #gen-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; }
+        #gen-modal.show { display: flex; }
+        .modal-box { background: #fff; border-radius: 16px; padding: 36px 40px; text-align: center; width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+        .modal-icon { font-size: 40px; margin-bottom: 12px; }
+        .modal-title { font-size: 16px; font-weight: bold; color: #1a1a2e; margin-bottom: 6px; }
+        .modal-sub { font-size: 13px; color: #888; margin-bottom: 20px; }
+        .circle-wrap { position: relative; width: 100px; height: 100px; margin: 0 auto 16px; }
+        .circle-wrap svg { transform: rotate(-90deg); }
+        .circle-bg { fill: none; stroke: #f0f0f0; stroke-width: 8; }
+        .circle-progress { fill: none; stroke: #e63946; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+        .circle-time { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; color: #e63946; }
+        .modal-msg { font-size: 13px; color: #555; min-height: 20px; }
+        .modal-bar-wrap { background: #f0f0f0; border-radius: 20px; height: 6px; margin-top: 16px; overflow: hidden; }
+        .modal-bar { height: 100%; background: linear-gradient(90deg,#e63946,#f4a261); border-radius: 20px; width: 0%; transition: width 1s linear; }
+    </style>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: bar}"></div>
+
+<!-- 모달 -->
+<div id="gen-modal">
+    <div class="modal-box">
+        <div class="modal-icon" id="modal-icon">📋</div>
+        <div class="modal-title" id="modal-title">생성 중</div>
+        <div class="modal-sub" id="modal-sub">잠시만 기다려주세요!</div>
+        <div class="circle-wrap">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+                <circle class="circle-bg" cx="50" cy="50" r="42"/>
+                <circle class="circle-progress" id="circle-prog" cx="50" cy="50" r="42" stroke-dasharray="264" stroke-dashoffset="0"/>
+            </svg>
+            <div class="circle-time" id="circle-time">--</div>
+        </div>
+        <div class="modal-msg" id="modal-msg">요청을 전송하고 있어요...</div>
+        <div class="modal-bar-wrap">
+            <div class="modal-bar" id="modal-bar"></div>
+        </div>
+    </div>
+</div>
+
+<div class="wrap">
+    <h1>🍽️✈️ 콘텐츠 블로그 도우미</h1>
+    <p class="subtitle">SEO 분석 · 포스팅 가이드라인 + 완성본 생성 (맛집·여행·숙소·체험·일상)</p>
+
+    <div class="nav-link">
+        <a th:if="${me != null and me.car}" th:href="@{/}">🚗 중고차 블로그 생성기</a>
+        <a th:if="${me != null and me.seo}" th:href="@{/seo}">🍽️ 콘텐츠 블로그 도우미</a>
+        <a th:if="${me != null and me.estate}" th:href="@{/estate}">🏢 분양 블로그 도우미</a>
+    </div>
+
+    <div th:if="${errorMsg}" class="error-box" th:text="${errorMsg}"></div>
+
+    <!-- 사용량 배너 -->
+    <div class="usage-banner">
+        <span class="usage-label">📊 오늘 남은 횟수</span>
+        <div class="usage-bar-wrap">
+            <div class="usage-bar"
+                 th:classappend="${dailyLimit > 0 and remainingCount > dailyLimit * 0.5 ? 'safe' : (dailyLimit > 0 and remainingCount > dailyLimit * 0.2 ? 'warning' : 'danger')}"
+                 th:style="'width:' + ${dailyLimit > 0 ? (remainingCount * 100 / dailyLimit) : 0} + '%'"></div>
+        </div>
+        <span class="usage-text">
+      <strong th:text="${remainingCount}"></strong>
+      <span th:text="'/' + ${dailyLimit} + '회 남음'"></span>
+      &nbsp;(오늘 <span th:text="${usedCount}"></span>회 사용)
+    </span>
+    </div>
+
+    <!-- 탭 -->
+    <div class="tab-wrap">
+        <button class="tab-btn" id="tab-btn-analyze" type="button" onclick="switchTab('analyze', this)">🔍 SEO 분석</button>
+        <button class="tab-btn" id="tab-btn-guide"   type="button" onclick="switchTab('guide', this)">📋 포스팅 가이드 + 완성본</button>
+    </div>
+
+    <!-- ─── 탭1: SEO 분석 ─── -->
+    <div id="tab-analyze" class="tab-panel">
+        <div class="card">
+            <h2>🔍 블로그 글 SEO 분석</h2>
+            <form id="form-analyze" th:action="@{/seo/analyze}" method="post">
+                <div class="form-group">
+                    <label>메인 키워드 *</label>
+                    <input type="text" name="keyword" placeholder="예: 홍대 파스타 맛집" th:value="${keyword}" required>
+                </div>
+                <div class="form-group">
+                    <label>제목 *</label>
+                    <input type="text" name="title" placeholder="작성한 블로그 제목" th:value="${title}" required>
+                </div>
+                <div class="form-group">
+                    <label>블로그 본문 *</label>
+                    <textarea name="content" placeholder="블로그 본문을 붙여넣기 하세요..." th:text="${content}" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>분석 정확도 (여러 번 분석 후 최고 점수 채택)</label>
+                    <select name="rounds">
+                        <option value="1" th:selected="${rounds == null or rounds == 1}">1회 분석 (기본, 빠름)</option>
+                        <option value="3" th:selected="${rounds == 3}">3회 분석 후 최고점 채택 (추천)</option>
+                        <option value="5" th:selected="${rounds == 5}">5회 분석 후 최고점 채택 (가장 꼼꼼함)</option>
+                    </select>
+                    <p class="tip">⚠️ 선택한 횟수만큼 오늘의 사용 한도를 소모해요. (예: 3회 선택 시 3회 차감)</p>
+                </div>
+                <button type="submit" class="btn-submit">🔍 SEO 분석 시작하기</button>
+            </form>
+        </div>
+        <div class="result-card" th:if="${analyzeResult != null}">
+            <h2>📊 SEO 분석 결과</h2>
+            <div class="result-text" id="analyzeResultText" th:text="${analyzeResult}"></div>
+            <div class="btn-row">
+                <button class="btn btn-copy" onclick="copyText('analyzeResultText')">📋 결과 복사</button>
+                <a th:href="@{/seo}"><button type="button" class="btn btn-reset">🔄 다시 분석하기</button></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── 탭2: 가이드라인 + 완성본 ─── -->
+    <div id="tab-guide" class="tab-panel">
+        <div class="card">
+            <h2>📋 포스팅 가이드 + 완성본 생성</h2>
+            <form id="form-guide" th:action="@{/seo/guide}" method="post">
+
+                <div class="form-group">
+                    <label>포스팅 유형 *</label>
+                    <select name="postType" id="postType" onchange="onPostTypeChange()">
+                        <option value="맛집" th:selected="${postType == null or postType == '맛집'}">🍽️ 맛집/카페</option>
+                        <option value="여행" th:selected="${postType == '여행'}">✈️ 여행/명소</option>
+                        <option value="숙소" th:selected="${postType == '숙소'}">🏨 숙소/호텔</option>
+                        <option value="체험" th:selected="${postType == '체험'}">🎨 체험/클래스</option>
+                        <option value="일상" th:selected="${postType == '일상'}">📝 일상/기타</option>
+                        <option value="기타" th:selected="${postType == '기타'}">✏️ 기타 (직접 입력)</option>
+                    </select>
+                    <p class="tip">유형을 바꾸면 아래 항목 이름과 카테고리 선택지가 자동으로 바뀌어요</p>
+                </div>
+
+                <div class="form-group" id="postTypeOtherWrap" style="display:none;">
+                    <label>유형 직접 입력 *</label>
+                    <input type="text" name="postTypeOther" id="postTypeOther"
+                           placeholder="예: 웨딩스냅, 반려동물미용, 인테리어, 자동차정비 등"
+                           th:value="${postTypeOther}">
+                    <p class="tip">여기에 입력한 유형에 맞춰 AI가 페르소나와 글 구성을 자동으로 맞춰요</p>
+                </div>
+
+                <div class="row2">
+                    <div class="form-group">
+                        <label>메인 키워드 *</label>
+                        <input type="text" name="guideKeyword" placeholder="예: 홍대 파스타 맛집"
+                               th:value="${guideKeyword}" required>
+                    </div>
+                    <div class="form-group">
+                        <label id="label-name">식당명 *</label>
+                        <input type="text" name="restaurantName" id="input-name" placeholder="예: 파스타 드 서울"
+                               th:value="${restaurantName}" required>
+                    </div>
+                </div>
+
+                <div class="row2">
+                    <div class="form-group">
+                        <label>주소 *</label>
+                        <input type="text" name="address" placeholder="예: 서울 마포구 홍대입구역 3번출구"
+                               th:value="${address}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>전화번호</label>
+                        <input type="text" name="phone" placeholder="예: 02-1234-5678"
+                               th:value="${phone}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label id="label-hours">영업시간</label>
+                    <input type="text" name="hours" placeholder="예: 11:30~22:00 (브레이크타임 15~17시)"
+                           th:value="${hours}">
+                </div>
+
+                <div class="form-group">
+                    <label id="label-menu">대표 메뉴 및 가격</label>
+                    <input type="text" name="menu" id="input-menu" placeholder="예: 까르보나라 15,000원, 봉골레 14,000원, 티라미수 8,000원"
+                           th:value="${menu}">
+                    <p class="tip">메뉴/상품과 가격을 함께 입력하면 더 자연스러운 포스팅이 생성돼요</p>
+                </div>
+
+                <div class="form-group">
+                    <label>오늘 경험한 내용 + 솔직한 후기 ⭐</label>
+                    <textarea name="myReview" rows="4"
+                              style="height:120px;"
+                              placeholder="예: 까르보나라 시켰는데 크림이 엄청 진하고 양도 많았어요. 면이 살짝 불어있었지만 맛은 괜찮았고, 같이 간 친구는 봉골레 먹었는데 조개가 신선하다고 했어요. 디저트로 티라미수도 먹었는데 달달해서 마무리로 딱이었어요."
+                              th:text="${myReview}"></textarea>
+                    <p class="tip">✅ 실제 경험을 솔직하게 적을수록 자연스러운 후기 포스팅이 만들어져요!</p>
+                </div>
+
+                <button type="submit" class="btn-submit">📋 포스팅 가이드 + 완성본 생성하기</button>
+            </form>
+        </div>
+
+        <!-- 가이드라인 결과 -->
+        <div class="result-card" th:if="${guideResult != null}">
+            <h2>📋 포스팅 가이드라인 (추천 키워드 포함)</h2>
+            <div class="result-text" id="guideResultText" th:text="${guideResult}"></div>
+            <div class="btn-row">
+                <button class="btn btn-copy" onclick="copyText('guideResultText')">📋 가이드 복사</button>
+            </div>
+        </div>
+
+        <!-- 포스팅 완성본 -->
+        <div class="result-card" th:if="${postResultHtml != null}">
+            <h2>✍️ 블로그 포스팅 완성본</h2>
+            <div class="post-render" id="postResultHtml" th:utext="${postResultHtml}"></div>
+            <textarea id="postResultPlain" style="display:none;" th:text="${postResultPlain}"></textarea>
+            <div class="btn-row">
+                <button class="btn btn-green" onclick="copyRichPost()">📋 서식 포함 복사 (추천)</button>
+                <button class="btn btn-copy" onclick="copyPlainPost()">📋 일반 텍스트 복사</button>
+                <a th:href="@{/seo}"><button type="button" class="btn btn-reset">🔄 다시 생성하기</button></a>
+            </div>
+            <p class="tip">💡 "서식 포함 복사"를 쓰면 소제목이 굵은 글씨(19px)로 네이버 에디터에 그대로 붙여넣기 돼요. 붙여넣은 후 혹시 서식이 깨지면 "일반 텍스트 복사"를 이용해주세요.</p>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    var MODAL_TOTAL = 90;
+    var modalTimer = null;
+    var modalElapsed = 0;
+    var MSG_ANALYZE = [
+      '메인 키워드를 분석하고 있어요...', '제목 SEO를 평가하고 있어요...',
+      '본문 키워드 위치를 확인하고 있어요...', '광고성 표현을 검토하고 있어요...',
+      '체류시간 개선 포인트를 찾고 있어요...', '추천 제목을 작성하고 있어요...',
+      '최종 업로드 버전을 다듬고 있어요...', '거의 다 됐어요! 😊'
+    ];
+    var MSG_GUIDE = [
+      '정보를 분석하고 있어요...', '추천 제목을 만들고 있어요...',
+      '추천 키워드를 뽑고 있어요...', '포스팅 가이드를 작성하고 있어요...',
+      '도입부를 쓰고 있어요...', '핵심 소개 섹션을 작성하고 있어요...',
+      '경험 & 분위기 후기를 쓰고 있어요...', '마무리 문단을 다듬고 있어요...'
+    ];
+    var currentMessages = MSG_ANALYZE;
+
+    // 포스팅 유형별 라벨/플레이스홀더
+    var TYPE_LABELS = {
+      '맛집': { name:'식당명 *',        namePh:'예: 파스타 드 서울',       menu:'대표 메뉴 및 가격',    menuPh:'예: 까르보나라 15,000원, 봉골레 14,000원', hours:'영업시간' },
+      '여행': { name:'장소/명소명 *',    namePh:'예: 남산서울타워',         menu:'대표 코스/즐길거리',   menuPh:'예: 전망대 입장 16,000원, 케이블카 왕복 15,000원', hours:'운영시간/이용시간' },
+      '숙소': { name:'숙소명 *',        namePh:'예: 오션뷰펜션',           menu:'객실/요금',           menuPh:'예: 오션뷰룸 150,000원, 스탠다드룸 100,000원', hours:'체크인/체크아웃' },
+      '체험': { name:'업체/클래스명 *',  namePh:'예: OO도자기공방',         menu:'프로그램/요금',        menuPh:'예: 초급반 35,000원, 커플반 60,000원', hours:'운영시간' },
+      '일상': { name:'장소/주제 *',      namePh:'예: OO브랜드 신제품',       menu:'주요 내용',           menuPh:'예: 신제품 정보 등', hours:'이용/운영시간' },
+      '기타': { name:'이름/상호명 *',    namePh:'예: OO스튜디오',           menu:'대표 상품/서비스',     menuPh:'예: 상품명과 가격 또는 특징', hours:'이용시간' }
+    };
+
+    function onPostTypeChange() {
+      var type = document.getElementById('postType').value;
+      var l = TYPE_LABELS[type] || TYPE_LABELS['맛집'];
+
+      document.getElementById('label-name').textContent = l.name;
+      document.getElementById('input-name').placeholder = l.namePh;
+      document.getElementById('label-menu').textContent = l.menu;
+      document.getElementById('input-menu').placeholder = l.menuPh;
+      document.getElementById('label-hours').textContent = l.hours;
+
+      // 유형 직접 입력 필드 토글
+      var otherWrap = document.getElementById('postTypeOtherWrap');
+      var otherInput = document.getElementById('postTypeOther');
+      if (type === '기타') {
+        otherWrap.style.display = 'block';
+        otherInput.disabled = false;
+      } else {
+        otherWrap.style.display = 'none';
+        otherInput.disabled = true;
+      }
+    }
+
+    function switchTab(mode, btn) {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+      document.getElementById('tab-' + mode).classList.add('active');
+    }
+
+    function startModal(type) {
+      currentMessages = type === 'guide' ? MSG_GUIDE : MSG_ANALYZE;
+      document.getElementById('modal-icon').textContent  = type === 'guide' ? '📋' : '🔍';
+      document.getElementById('modal-title').textContent = type === 'guide' ? '가이드 + 포스팅 생성 중' : 'SEO 분석 중';
+      document.getElementById('modal-sub').textContent   = type === 'guide' ? 'Gemini가 포스팅을 작성하고 있어요!' : 'Gemini가 블로그를 분석하고 있어요!';
+      modalElapsed = 0;
+      document.getElementById('modal-bar').style.width = '0%';
+      document.getElementById('modal-msg').textContent = currentMessages[0];
+      document.getElementById('gen-modal').classList.add('show');
+      updateCircle(MODAL_TOTAL);
+      if (modalTimer) clearInterval(modalTimer);
+      modalTimer = setInterval(function() {
+        modalElapsed++;
+        var remaining = Math.max(0, MODAL_TOTAL - modalElapsed);
+        updateCircle(remaining);
+        var idx = Math.min(currentMessages.length - 1, Math.floor(modalElapsed / (MODAL_TOTAL / currentMessages.length)));
+        document.getElementById('modal-msg').textContent = currentMessages[idx];
+        if (modalElapsed >= MODAL_TOTAL) {
+          clearInterval(modalTimer);
+          document.getElementById('circle-time').textContent = '⏳';
+          document.getElementById('modal-msg').textContent = '거의 다 됐어요! 잠시만 기다려주세요...';
+          document.getElementById('modal-bar').style.width = '99%';
+        } else {
+          document.getElementById('modal-bar').style.width = (modalElapsed / MODAL_TOTAL * 100) + '%';
+        }
+      }, 1000);
+    }
+
+    function updateCircle(remaining) {
+      var prog = document.getElementById('circle-prog');
+      var timeEl = document.getElementById('circle-time');
+      var ratio = remaining / MODAL_TOTAL;
+      prog.style.strokeDashoffset = 264 * (1 - ratio);
+      timeEl.textContent = remaining + 's';
+      var color = ratio > 0.5 ? '#34a853' : ratio > 0.2 ? '#fbbc04' : '#e63946';
+      prog.style.stroke = color;
+      timeEl.style.color = color;
+    }
+
+    function copyText(id) {
+      var text = document.getElementById(id).innerText;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() { alert('복사됐어요!'); });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        alert('복사됐어요!');
+      }
+    }
+
+    // 서식(굵은 소제목) 포함 복사 - postResultHtml 영역을 통째로 선택해서 복사
+    function copyRichPost() {
+      var el = document.getElementById('postResultHtml');
+      var range = document.createRange();
+      range.selectNodeContents(el);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      sel.removeAllRanges();
+      if (ok) {
+        alert('포스팅이 복사됐어요! (소제목 굵은 글씨 서식 포함)\n네이버 블로그 에디터에 붙여넣기 하세요.');
+      } else {
+        alert('서식 포함 복사에 실패했어요. "일반 텍스트 복사"를 이용해주세요.');
+      }
+    }
+
+    // 서식 없는 일반 텍스트 복사 (백업용)
+    function copyPlainPost() {
+      var text = document.getElementById('postResultPlain').value;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+          alert('포스팅이 복사됐어요! (서식 없음)');
+        });
+      } else {
+        var ta = document.getElementById('postResultPlain');
+        ta.style.display = 'block';
+        ta.select(); document.execCommand('copy');
+        ta.style.display = 'none';
+        alert('포스팅이 복사됐어요!');
+      }
+    }
+
+    window.onload = function() {
+      onPostTypeChange();
+
+      var activeTab = /*[[${activeTab}]]*/ null;
+      if (activeTab === 'guide') {
+        switchTab('guide', document.getElementById('tab-btn-guide'));
+      } else {
+        switchTab('analyze', document.getElementById('tab-btn-analyze'));
+      }
+
+      document.getElementById('form-analyze').addEventListener('submit', function(e) {
+        e.preventDefault(); startModal('analyze');
+        setTimeout(function() { document.getElementById('form-analyze').submit(); }, 100);
+      });
+
+      document.getElementById('form-guide').addEventListener('submit', function(e) {
+        e.preventDefault(); startModal('guide');
+        setTimeout(function() { document.getElementById('form-guide').submit(); }, 100);
+      });
+    };
+</script>
+</body>
+</html>

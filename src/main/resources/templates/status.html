@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>이용 안내 · AI 블로그 도우미</title>
+  <style th:replace="~{fragments/authstyle :: css}"></style>
+</head>
+<body>
+<div class="box" style="text-align:center;">
+  <th:block th:switch="${state}">
+    <div th:case="'pending'">
+      <div style="font-size:42px;">⏳</div>
+      <h1 style="margin-top:8px;">승인 대기 중이에요</h1>
+      <p class="sub" style="margin-top:10px;">관리자가 결제를 확인하면 바로 이용할 수 있어요.<br>
+        크몽 메시지로 가입한 아이디(<b th:text="${user.username}"></b>)를 알려주시면 더 빨리 처리돼요.</p>
+    </div>
+    <div th:case="'suspended'">
+      <div style="font-size:42px;">⛔</div>
+      <h1 style="margin-top:8px;">이용이 정지된 계정이에요</h1>
+      <p class="sub" style="margin-top:10px;">자세한 내용은 관리자에게 문의해 주세요.</p>
+    </div>
+    <div th:case="'expired'">
+      <div style="font-size:42px;">📅</div>
+      <h1 style="margin-top:8px;">이용 기간이 끝났어요</h1>
+      <p class="sub" style="margin-top:10px;">
+        <span th:text="${user.expiresAt}"></span> 까지 이용하셨어요.<br>
+        크몽에서 다음 달 이용권을 결제하시면 연장해 드려요.<br>
+        <span style="color:#999;font-size:12px;">작성해 둔 자료는 그대로 보관돼 있어요.</span></p>
+    </div>
+    <div th:case="'nofeature'">
+      <div style="font-size:42px;">🔧</div>
+      <h1 style="margin-top:8px;">사용할 수 있는 기능이 아직 없어요</h1>
+      <p class="sub" style="margin-top:10px;">관리자가 기능을 열어드리면 이용할 수 있어요.</p>
+    </div>
+  </th:block>
+  <a th:href="@{/status}" class="btn gray" style="text-decoration:none;">🔄 다시 확인</a>
+  <form th:action="@{/logout}" method="post"><button type="submit" class="btn">로그아웃</button></form>
+</div>
+</body>
+</html>

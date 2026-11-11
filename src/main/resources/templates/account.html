@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>내 정보 · AI 블로그 도우미</title>
+  <style th:replace="~{fragments/authstyle :: css}"></style>
+</head>
+<body style="padding-top:20px;">
+<div th:replace="~{fragments/topbar :: bar}"></div>
+<div class="box">
+  <h1>👤 내 정보</h1>
+  <p class="sub" th:text="${me.username} + ' · ' + (${me.hasExpiry()} ? '이용기간 ~ ' + ${me.expiresAt} : '기간 제한 없음')"></p>
+
+  <div th:if="${errorMsg}" class="msg err" th:text="${errorMsg}"></div>
+  <div th:if="${infoMsg}" class="msg ok" th:text="${infoMsg}"></div>
+
+  <form th:action="@{/account/password}" method="post">
+    <label>현재 비밀번호</label>
+    <input type="password" name="current" required autocomplete="current-password">
+    <label>새 비밀번호 (8자 이상)</label>
+    <input type="password" name="password" minlength="8" maxlength="64" required autocomplete="new-password">
+    <label>새 비밀번호 확인</label>
+    <input type="password" name="password2" minlength="8" maxlength="64" required autocomplete="new-password">
+    <button type="submit" class="btn">비밀번호 변경</button>
+  </form>
+  <p class="foot"><a th:href="@{/}">← 돌아가기</a></p>
+</div>
+</body>
+</html>

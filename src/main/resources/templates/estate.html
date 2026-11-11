@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>분양 블로그 도우미 - 렌트제이카</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 20px; }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    h1 { text-align: center; color: #1a1a2e; padding: 20px 0 5px; font-size: 22px; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 16px; font-size: 13px; }
+    .nav-link { text-align: center; margin-bottom: 20px; }
+    .nav-link a { color: #1d4e89; text-decoration: none; font-size: 13px; font-weight: bold; margin: 0 10px; }
+    .nav-link a:hover { text-decoration: underline; }
+    .error-box { background: #fff0f0; border: 1px solid #f5c6c6; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #c0392b; font-size: 14px; }
+    .info-box  { background: #eef6ff; border: 1px solid #c6dcf5; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; color: #1d4e89; font-size: 14px; }
+
+    .usage-banner { background: #fff; border-radius: 10px; padding: 14px 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .usage-label { font-size: 13px; font-weight: bold; color: #333; white-space: nowrap; }
+    .usage-bar-wrap { flex: 1; min-width: 160px; background: #e9ecef; border-radius: 20px; height: 10px; overflow: hidden; }
+    .usage-bar { height: 100%; border-radius: 20px; }
+    .usage-bar.safe { background: #34a853; } .usage-bar.warning { background: #fbbc04; } .usage-bar.danger { background: #e63946; }
+    .usage-text { font-size: 13px; color: #555; white-space: nowrap; }
+    .usage-text strong { color: #1d4e89; }
+
+    .card { background: #fff; border-radius: 10px; padding: 22px 26px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-top: 4px solid #1d4e89; }
+    .card h2 { font-size: 16px; color: #1a1a2e; margin-bottom: 4px; }
+    .card .desc { font-size: 12px; color: #888; margin-bottom: 16px; }
+    .step { display: inline-block; background: #1d4e89; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-right: 6px; vertical-align: 2px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px; }
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #1d4e89; }
+    .form-group textarea { resize: vertical; line-height: 1.6; }
+    .row2 { display: flex; gap: 14px; flex-wrap: wrap; }
+    .row2 .form-group { flex: 1; min-width: 220px; }
+    .tip { font-size: 11px; color: #888; margin-top: 4px; }
+    .btn-submit { display: block; width: 100%; padding: 14px; background: linear-gradient(135deg, #1d4e89, #0b2f5c); color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 8px; font-family: inherit; }
+    .btn-sub { display: block; width: 100%; padding: 10px; background: #fff; color: #1d4e89; border: 1px solid #1d4e89; border-radius: 8px; font-size: 13px; cursor: pointer; margin-top: 8px; font-family: inherit; }
+    .btn-submit:hover { opacity: 0.92; }
+    details summary { cursor: pointer; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 6px; }
+
+    .result-card { background: #fff; border-radius: 10px; padding: 22px 26px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .result-card h2 { font-size: 15px; color: #333; border-left: 4px solid #34a853; padding-left: 10px; margin-bottom: 14px; }
+    .result-text { white-space: pre-wrap; font-size: 14px; line-height: 1.8; color: #333; }
+    .post-render { white-space: pre-wrap; font-size: 14px; line-height: 1.9; color: #333; background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 16px; max-height: 650px; overflow-y: auto; }
+
+    /* 키워드 표 */
+    .kw-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .kw-table th { background: #f4f7fb; text-align: left; padding: 8px 10px; font-size: 12px; color: #555; border-bottom: 2px solid #dfe6ef; }
+    .kw-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    .kw-table tr:hover td { background: #f8fbff; }
+    .kw-name { font-weight: bold; color: #1a1a2e; }
+    .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+    .lv-대표 { background: #ffe3e3; color: #c0392b; } .lv-중간 { background: #fff3cd; color: #946200; } .lv-롱테일 { background: #e3f7e8; color: #1e7d38; }
+    .angle { background: #eef3fa; color: #1d4e89; }
+    .btn-use { padding: 5px 10px; font-size: 12px; background: #1d4e89; color: #fff; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; font-family: inherit; }
+    .kw-wrap { overflow-x: auto; }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .btn { padding: 10px 22px; border: none; border-radius: 7px; font-size: 13px; cursor: pointer; font-family: inherit; }
+    .btn-copy { background: #457b9d; color: #fff; } .btn-green { background: #34a853; color: #fff; }
+
+    #gen-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; }
+    #gen-modal.show { display: flex; }
+    .modal-box { background: #fff; border-radius: 16px; padding: 32px 36px; text-align: center; width: 320px; }
+    .modal-title { font-size: 16px; font-weight: bold; color: #1a1a2e; margin: 10px 0 6px; }
+    .modal-msg { font-size: 13px; color: #555; min-height: 20px; }
+    .modal-bar-wrap { background: #f0f0f0; border-radius: 20px; height: 6px; margin-top: 16px; overflow: hidden; }
+    .modal-bar { height: 100%; background: linear-gradient(90deg,#1d4e89,#4ea1f3); width: 0%; transition: width 1s linear; }
+    .proj-list { list-style: none; }
+    .proj-list li { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap; }
+    .proj-list li.on { background: #f4f8fd; }
+    .proj-name { font-weight: bold; color: #1a1a2e; flex: 1; min-width: 160px; }
+    .proj-meta { font-size: 12px; color: #888; }
+    .btn-mini { padding: 5px 10px; font-size: 12px; border-radius: 5px; border: 1px solid #1d4e89; background: #fff; color: #1d4e89; cursor: pointer; text-decoration: none; font-family: inherit; }
+    .btn-mini.del { border-color: #ccc; color: #999; }
+    .btn-mini.fill { background: #1d4e89; color: #fff; }
+    .loaded-badge { display: inline-block; background: #eef6ff; color: #1d4e89; border: 1px solid #c6dcf5; border-radius: 6px; padding: 6px 10px; font-size: 12px; margin-bottom: 12px; }
+    .score-wrap { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+    .score-num { font-size: 40px; font-weight: bold; line-height: 1; }
+    .score-num small { font-size: 14px; color: #999; font-weight: normal; }
+    .score-good { color: #1e7d38; } .score-mid { color: #c98a00; } .score-bad { color: #c0392b; }
+    .score-desc { font-size: 13px; color: #555; }
+    .score-badge { display: inline-block; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 10px; }
+    .sb-good { background: #e3f7e8; color: #1e7d38; } .sb-mid { background: #fff3cd; color: #946200; } .sb-bad { background: #ffe3e3; color: #c0392b; }
+    .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #333; margin: 6px 0 4px; }
+    .check-row input { width: auto; }
+    .btn-revise { background: #e67e22; color: #fff; }
+    @media (max-width: 600px) { body { padding: 12px; } .card, .result-card { padding: 18px 16px; } }
+  </style>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: bar}"></div>
+
+<div id="gen-modal">
+  <div class="modal-box">
+    <div style="font-size:38px;" id="modal-icon">🏢</div>
+    <div class="modal-title" id="modal-title">분석 중</div>
+    <div class="modal-msg" id="modal-msg">요청을 전송하고 있어요...</div>
+    <div class="modal-bar-wrap"><div class="modal-bar" id="modal-bar"></div></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>🏢 분양 블로그 도우미</h1>
+  <p class="subtitle">분양 자료(PDF) → 노출 키워드 추천 → 키워드별 정보성 포스팅 → 네이버 노출 점검 · 현장별 자동 저장</p>
+
+  <div class="nav-link">
+    <a th:if="${me != null and me.car}" th:href="@{/}">🚗 중고차 블로그 생성기</a>
+    <a th:if="${me != null and me.seo}" th:href="@{/seo}">🍽️ 콘텐츠 블로그 도우미</a>
+    <a th:if="${me != null and me.estate}" th:href="@{/estate}">🏢 분양 블로그 도우미</a>
+  </div>
+
+  <div th:if="${errorMsg}" class="error-box" th:text="${errorMsg}"></div>
+  <div th:if="${infoMsg}" class="info-box" th:text="${infoMsg}"></div>
+
+  <div class="usage-banner">
+    <span class="usage-label">📊 오늘 남은 횟수</span>
+    <div class="usage-bar-wrap">
+      <div class="usage-bar"
+           th:classappend="${dailyLimit > 0 and remainingCount > dailyLimit * 0.5 ? 'safe' : (dailyLimit > 0 and remainingCount > dailyLimit * 0.2 ? 'warning' : 'danger')}"
+           th:style="'width:' + ${dailyLimit > 0 ? (remainingCount * 100 / dailyLimit) : 0} + '%'"></div>
+    </div>
+    <span class="usage-text"><strong th:text="${remainingCount}"></strong>
+            <span th:text="'/' + ${dailyLimit} + '회 남음'"></span> (오늘 <span th:text="${usedCount}"></span>회 사용)</span>
+  </div>
+
+  <!-- ─── 저장된 현장 ─── -->
+  <div class="result-card" th:if="${projectList != null and !projectList.isEmpty()}">
+    <h2>📁 저장된 현장 (불러오기는 횟수 차감 없음)</h2>
+    <ul class="proj-list">
+      <li th:each="pj : ${projectList}" th:classappend="${projectId == pj.id} ? 'on'">
+        <span class="proj-name" th:text="${#strings.isEmpty(pj.projectName) ? '(현장명 없음)' : pj.projectName}"></span>
+        <span class="proj-meta" th:text="${pj.createdAt} + ' · 글 ' + ${pj.postCount} + '개'"></span>
+        <a class="btn-mini fill" th:href="@{/estate(project=${pj.id})}">불러오기</a>
+        <form th:action="@{/estate/delete}" method="post" style="display:inline;"
+              onsubmit="return confirm('이 현장과 저장된 글을 모두 삭제할까요?');">
+          <input type="hidden" name="projectId" th:value="${pj.id}">
+          <button type="submit" class="btn-mini del">삭제</button>
+        </form>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ─── STEP 1 ─── -->
+  <div class="card">
+    <h2><span class="step">STEP 1</span>분양 자료 올리고 키워드 뽑기</h2>
+    <p class="desc">교육자료/분양 안내 PDF를 올리면 텍스트를 뽑아 네이버 노출용 키워드 20~30개와 연재 기획을 만들어줘요.</p>
+    <form id="form-keywords" th:action="@{/estate/keywords}" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="mode" id="mode" value="keywords">
+      <input type="hidden" name="projectId" th:value="${projectId}">
+      <div class="loaded-badge" th:if="${project != null}">
+        📁 불러온 현장: <b th:text="${project.projectName}"></b> (<span th:text="${project.createdAt}"></span> 저장)
+        · 새 PDF를 올리면 새 현장으로, 그대로 추천받으면 이 현장의 키워드를 다시 뽑아요
+      </div>
+      <div class="row2">
+        <div class="form-group">
+          <label>현장명</label>
+          <input type="text" name="projectName" placeholder="예: 광주학동 트리플위너" th:value="${projectName}">
+        </div>
+        <div class="form-group">
+          <label>지역 / 꼭 넣고 싶은 키워드</label>
+          <input type="text" name="region" placeholder="예: 광주학동오피스텔, 남광주역, 광주 동구" th:value="${region}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>분양 자료 PDF</label>
+        <input type="file" name="pdfFile" accept="application/pdf">
+        <p class="tip">PDF를 올리면 아래 자료 텍스트를 PDF 내용으로 바꿔요. 이미지로만 된 페이지(조감도, 평면도 그림)는 글자를 못 읽어요.</p>
+      </div>
+      <details th:open="${material != null and !#strings.isEmpty(material)}">
+        <summary>📄 자료 텍스트 (직접 붙여넣기 / 추출 결과 확인·수정) <span th:if="${material != null}" th:text="'· ' + ${#strings.length(material)} + '자'"></span></summary>
+        <div class="form-group">
+                    <textarea name="material" id="material" style="height:260px;"
+                              placeholder="PDF가 없으면 분양 자료 내용을 여기에 붙여넣으세요."
+                              th:text="${material}"></textarea>
+          <p class="tip">⚠️ 판매현황(잔여 호실), 수수료 같은 내부 정보는 지워두면 더 안전해요. (AI에게도 글에 쓰지 말라고 지시돼 있어요)</p>
+        </div>
+      </details>
+      <button type="submit" class="btn-submit">🔎 키워드 + 연재 기획 추천받기 (1회 차감)</button>
+      <button type="button" class="btn-sub" onclick="extractOnly()">📄 PDF 텍스트만 먼저 추출해보기 (차감 없음)</button>
+    </form>
+  </div>
+
+  <!-- 키워드 결과 -->
+  <div class="result-card" th:if="${keywordList != null and !keywordList.isEmpty()}">
+    <h2>🎯 추천 키워드 (사용 누르면 STEP 2에 자동 입력)</h2>
+    <div class="kw-wrap">
+      <table class="kw-table">
+        <thead><tr><th>키워드</th><th>단계</th><th>추천 주제</th><th>제목안</th><th></th></tr></thead>
+        <tbody>
+        <tr th:each="k : ${keywordList}">
+          <td class="kw-name" th:text="${k.keyword}"></td>
+          <td><span class="badge" th:classappend="'lv-' + ${k.level}" th:text="${k.level}"></span></td>
+          <td><span class="badge angle" th:text="${k.angle}"></span></td>
+          <td th:text="${k.titleIdea}"></td>
+          <td><button type="button" class="btn-use"
+                      th:data-kw="${k.keyword}" th:data-angle="${k.angle}" th:data-sub="${k.subKeywords}"
+                      onclick="useKeyword(this)">사용</button></td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="result-card" th:if="${keywordReport != null}">
+    <h2>🗂️ 현장 분석 · 키워드 전략 · 연재 기획</h2>
+    <div class="result-text" id="keywordReportText" th:text="${keywordReport}"></div>
+    <div class="btn-row"><button class="btn btn-copy" onclick="copyText('keywordReportText')">📋 복사</button></div>
+  </div>
+
+  <!-- ─── STEP 2 ─── -->
+  <div class="card" id="step2">
+    <h2><span class="step">STEP 2</span>키워드로 포스팅 만들기</h2>
+    <p class="desc">위 표에서 '사용'을 누르거나 직접 입력하세요. 한 글엔 한 주제만 — 여러 키워드는 연재로 나눠 쓰는 게 노출에 유리해요.</p>
+    <form id="form-post" th:action="@{/estate/post}" method="post">
+      <input type="hidden" name="projectId" th:value="${projectId}">
+      <input type="hidden" name="projectName" th:value="${projectName}">
+      <input type="hidden" name="region" th:value="${region}">
+      <textarea name="material" id="material-post" style="display:none;" th:text="${projectId == null or #strings.isEmpty(projectId) ? material : ''}"></textarea>
+      <textarea name="prevPost" id="prevPost" style="display:none;"></textarea>
+      <textarea name="seoFeedback" id="seoFeedback" style="display:none;"></textarea>
+      <div class="row2">
+        <div class="form-group">
+          <label>메인 키워드 *</label>
+          <input type="text" name="keyword" id="kw" placeholder="예: 광주학동오피스텔" th:value="${keyword}" required>
+        </div>
+        <div class="form-group">
+          <label>글 주제</label>
+          <select name="angle" id="angle">
+            <option value="종합소개"  th:selected="${angle == null or angle == '종합소개'}">🏢 종합 소개 (사업개요)</option>
+            <option value="입지교통"  th:selected="${angle == '입지교통'}">🚇 입지 · 교통</option>
+            <option value="평면타입"  th:selected="${angle == '평면타입'}">📐 평면 · 타입 (복층/테라스)</option>
+            <option value="투자임대"  th:selected="${angle == '투자임대'}">💰 투자 · 임대 수요</option>
+            <option value="개발호재"  th:selected="${angle == '개발호재'}">🏗️ 주변 개발 계획</option>
+            <option value="정책대출"  th:selected="${angle == '정책대출'}">🏦 정책 · 대출</option>
+            <option value="상가분양"  th:selected="${angle == '상가분양'}">🏪 상가(근생) 분양</option>
+            <option value="생활인프라" th:selected="${angle == '생활인프라'}">🌳 생활 인프라</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>서브 키워드</label>
+        <input type="text" name="subKeywords" id="sub" placeholder="예: 남광주역 오피스텔, 광주 복층 오피스텔, 학동 오피스텔 분양" th:value="${subKeywords}">
+      </div>
+      <div class="row2">
+        <div class="form-group">
+          <label>문의/상담 안내</label>
+          <label class="check-row" style="margin-top:0;">
+            <input type="checkbox" name="useFixedContact" id="useFixedContact" value="true"
+                   th:checked="${useFixedContact}" onchange="toggleContact()">
+            고정 상담 안내 넣기
+          </label>
+          <p class="tip" style="line-height:1.6;">분양상담 010-4713-9571 · 카카오 오픈채팅 https://open.kakao.com/o/sNZkTTTi<br>
+            + '블로그 보고 연락드렸어요'라고 말해달라는 문구 (해시태그 바로 위에 그대로 붙음)</p>
+          <input type="text" name="contact" id="contactInput" placeholder="고정 안내를 끄면 여기에 직접 입력" th:value="${contact}">
+        </div>
+        <div class="form-group">
+          <label>말투</label>
+          <select name="tone">
+            <option value="정보 정리형 (객관적이고 친절한 해요체)" th:selected="${tone == null or #strings.isEmpty(tone) or tone == '정보 정리형 (객관적이고 친절한 해요체)'}">정보 정리형 (정보성 노출용, 추천)</option>
+            <option value="친근한 전문가 구어체" th:selected="${tone == '친근한 전문가 구어체'}">친근한 전문가 구어체</option>
+            <option value="직접 다녀온 현장 답사 후기 느낌" th:selected="${tone == '직접 다녀온 현장 답사 후기 느낌'}">현장 답사 후기 느낌</option>
+            <option value="사회초년생·1인가구 눈높이" th:selected="${tone == '사회초년생·1인가구 눈높이'}">사회초년생·1인가구 눈높이</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>추가 요청 / 직접 본 내용</label>
+        <textarea name="memo" style="height:90px;" placeholder="예: 홍보관 직접 가봤는데 층고가 확실히 높았음. 15층 복층 위주로 써줘." th:text="${memo}"></textarea>
+      </div>
+      <label class="check-row">
+        <input type="checkbox" name="autoCheck" value="true" th:checked="${autoCheck}">
+        생성 후 네이버 노출 점검까지 자동 실행 (+1회 차감, 추천)
+      </label>
+      <button type="submit" class="btn-submit">✍️ 가이드 + 포스팅 완성본 생성</button>
+    </form>
+  </div>
+
+  <!-- 노출 점검 결과 -->
+  <div class="result-card" id="seo-result" th:if="${currentPost != null}">
+    <h2>📈 네이버 노출 점검 (정보성 글 기준)</h2>
+    <div th:if="${seoResult != null}">
+      <div class="score-wrap">
+        <div class="score-num"
+             th:classappend="${seoScore >= 80 ? 'score-good' : (seoScore >= 65 ? 'score-mid' : 'score-bad')}">
+          <span th:text="${seoScore >= 0 ? seoScore : '?'}"></span><small> / 100</small>
+        </div>
+        <div class="score-desc">
+          80점 이상: 바로 발행 · 65~79점: 수정 후 발행 · 65점 미만: 다시 작성 권장<br>
+          AI가 상위노출 글 기준으로 매긴 예상 점수라 실제 순위를 보장하진 않아요.
+        </div>
+      </div>
+      <div class="result-text" id="seoResultText" th:text="${seoResult}"></div>
+      <textarea id="seoResultRaw" style="display:none;" th:text="${seoResult}"></textarea>
+    </div>
+    <p class="tip" th:if="${seoResult == null}">아직 점검하지 않은 글이에요.</p>
+    <div class="btn-row">
+      <button type="button" class="btn btn-revise" th:if="${seoResult != null}" onclick="reviseWithFeedback()">✏️ 점검 반영해서 다시 쓰기 (1~2회 차감)</button>
+      <form th:action="@{/estate/check}" method="post" style="display:inline;" onsubmit="startModal('check')">
+        <input type="hidden" name="projectId" th:value="${projectId}">
+        <input type="hidden" name="postId" th:value="${currentPost.id}">
+        <input type="hidden" name="subKeywords" th:value="${subKeywords}">
+        <button type="submit" class="btn btn-copy" th:text="${seoResult != null} ? '🔁 다시 점검 (1회 차감)' : '📈 노출 점검하기 (1회 차감)'"></button>
+      </form>
+    </div>
+    <textarea id="postRaw" style="display:none;" th:text="${postRaw}"></textarea>
+  </div>
+
+  <div class="result-card" th:if="${guideResult != null and !#strings.isEmpty(guideResult)}">
+    <h2>📋 포스팅 가이드</h2>
+    <div class="result-text" id="guideResultText" th:text="${guideResult}"></div>
+    <div class="btn-row"><button class="btn btn-copy" onclick="copyText('guideResultText')">📋 가이드 복사</button></div>
+  </div>
+
+  <div class="result-card" id="post-result" th:if="${postResultHtml != null}">
+    <h2>✍️ 블로그 포스팅 완성본</h2>
+    <div class="post-render" id="postResultHtml" th:utext="${postResultHtml}"></div>
+    <textarea id="postResultPlain" style="display:none;" th:text="${postResultPlain}"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="copyRichPost()">📋 서식 포함 복사 (추천)</button>
+      <button class="btn btn-copy" onclick="copyPlainPost()">📋 일반 텍스트 복사</button>
+    </div>
+    <p class="tip">💡 같은 자료로 STEP 2만 반복하면 키워드별 연재 글을 계속 만들 수 있어요. 수익률·호재 표현은 올리기 전에 한 번 더 확인해주세요.</p>
+  </div>
+
+  <!-- 이 현장에서 만든 글 -->
+  <div class="result-card" th:if="${postList != null and !postList.isEmpty()}">
+    <h2>🗃️ 이 현장에서 만든 글 (<span th:text="${#lists.size(postList)}"></span>개)</h2>
+    <div class="kw-wrap">
+      <table class="kw-table">
+        <thead><tr><th>작성일</th><th>키워드</th><th>제목</th><th>점수</th><th></th></tr></thead>
+        <tbody>
+        <tr th:each="ps : ${postList}" th:style="${currentPost != null and currentPost.id == ps.id} ? 'background:#f4f8fd'">
+          <td style="white-space:nowrap;" th:text="${ps.createdAt}"></td>
+          <td class="kw-name" th:text="${ps.keyword}"></td>
+          <td th:text="${ps.title}"></td>
+          <td>
+                        <span th:if="${!#strings.isEmpty(ps.score)}" class="score-badge"
+                              th:classappend="${ps.scoreNum >= 80 ? 'sb-good' : (ps.scoreNum >= 65 ? 'sb-mid' : 'sb-bad')}"
+                              th:text="${ps.score}"></span>
+            <span th:if="${#strings.isEmpty(ps.score)}" class="proj-meta">-</span>
+          </td>
+          <td style="white-space:nowrap;">
+            <a class="btn-mini" th:href="@{/estate(project=${projectId}, post=${ps.id})}">보기</a>
+            <form th:action="@{/estate/post/delete}" method="post" style="display:inline;"
+                  onsubmit="return confirm('이 글을 삭제할까요?');">
+              <input type="hidden" name="projectId" th:value="${projectId}">
+              <input type="hidden" name="postId" th:value="${ps.id}">
+              <button type="submit" class="btn-mini del">삭제</button>
+            </form>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script th:inline="javascript">
+  var activeStep = /*[[${activeStep}]]*/ null;
+  var MODAL_TOTAL = 90, modalTimer = null;
+  var MSG = {
+    keywords: ['자료를 읽고 있어요...', '현장 셀링포인트를 정리하고 있어요...', '검색 키워드를 조합하고 있어요...',
+               '대표/롱테일 키워드를 나누고 있어요...', '연재 기획을 짜고 있어요...', '거의 다 됐어요!'],
+    post:     ['자료에서 필요한 정보를 찾고 있어요...', '제목을 뽑고 있어요...', '도입부를 쓰고 있어요...',
+               '소제목별 본문을 쓰고 있어요...', '과장 표현을 점검하고 있어요...', '해시태그를 정리하고 있어요...'],
+    extract:  ['PDF를 업로드하고 있어요...', '텍스트를 추출하고 있어요...'],
+    check:    ['제목을 채점하고 있어요...', '키워드 배치를 세고 있어요...', '정보 밀도를 평가하고 있어요...',
+               '광고성 표현을 찾고 있어요...', '고칠 점을 정리하고 있어요...']
+  };
+
+  function startModal(type) {
+    var msgs = MSG[type], elapsed = 0, total = type === 'extract' ? 20 : MODAL_TOTAL;
+    document.getElementById('modal-title').textContent =
+      type === 'post' ? '포스팅 작성 중' : (type === 'extract' ? 'PDF 추출 중' : (type === 'check' ? '노출 점검 중' : '키워드 분석 중'));
+    document.getElementById('modal-msg').textContent = msgs[0];
+    document.getElementById('modal-bar').style.width = '0%';
+    document.getElementById('gen-modal').classList.add('show');
+    if (modalTimer) clearInterval(modalTimer);
+    modalTimer = setInterval(function () {
+      elapsed++;
+      var idx = Math.min(msgs.length - 1, Math.floor(elapsed / (total / msgs.length)));
+      document.getElementById('modal-msg').textContent = msgs[idx];
+      document.getElementById('modal-bar').style.width = Math.min(99, elapsed / total * 100) + '%';
+    }, 1000);
+  }
+
+  function extractOnly() {
+    document.getElementById('mode').value = 'extract';
+    startModal('extract');
+    document.getElementById('form-keywords').submit();
+  }
+
+  function useKeyword(btn) {
+    document.getElementById('kw').value = btn.getAttribute('data-kw') || '';
+    document.getElementById('sub').value = btn.getAttribute('data-sub') || '';
+    var angle = (btn.getAttribute('data-angle') || '').replace(/\s/g, '');
+    var sel = document.getElementById('angle');
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === angle) { sel.selectedIndex = i; break; }
+    }
+    document.getElementById('step2').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function toggleContact() {
+    var on = document.getElementById('useFixedContact').checked;
+    var input = document.getElementById('contactInput');
+    input.style.display = on ? 'none' : 'block';
+  }
+
+  function reviseWithFeedback() {
+    document.getElementById('prevPost').value = document.getElementById('postRaw').value;
+    document.getElementById('seoFeedback').value = document.getElementById('seoResultRaw').value;
+    submitPostForm();
+  }
+
+  function submitPostForm() {
+    var form = document.getElementById('form-post');
+    var pid = form.querySelector('input[name=projectId]').value;
+    if (!pid) {
+      // 저장 안 된 상태: STEP 1 자료 텍스트를 그대로 보냄
+      var m = document.getElementById('material');
+      if (m && m.value.trim()) document.getElementById('material-post').value = m.value;
+      if (!document.getElementById('material-post').value.trim()) {
+        alert('STEP 1에서 분양 자료(PDF 또는 텍스트)를 먼저 넣어주세요.'); return;
+      }
+    }
+    if (!document.getElementById('kw').value.trim()) { alert('메인 키워드를 입력해주세요.'); return; }
+    startModal('post');
+    setTimeout(function () { form.submit(); }, 100);
+  }
+
+  function copyText(id) {
+    var text = document.getElementById(id).innerText;
+    navigator.clipboard.writeText(text).then(function () { alert('복사됐어요!'); });
+  }
+
+  function copyRichPost() {
+    var el = document.getElementById('postResultHtml');
+    var range = document.createRange(); range.selectNodeContents(el);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    sel.removeAllRanges();
+    alert(ok ? '포스팅이 복사됐어요! 네이버 블로그 에디터에 붙여넣기 하세요.' : '서식 포함 복사에 실패했어요. "일반 텍스트 복사"를 이용해주세요.');
+  }
+
+  function copyPlainPost() {
+    navigator.clipboard.writeText(document.getElementById('postResultPlain').value)
+      .then(function () { alert('포스팅이 복사됐어요! (서식 없음)'); });
+  }
+
+  window.onload = function () {
+    toggleContact();
+    document.getElementById('form-keywords').addEventListener('submit', function (e) {
+      e.preventDefault();
+      document.getElementById('mode').value = 'keywords';
+      startModal('keywords');
+      setTimeout(function () { document.getElementById('form-keywords').submit(); }, 100);
+    });
+    document.getElementById('form-post').addEventListener('submit', function (e) {
+      e.preventDefault();
+      document.getElementById('prevPost').value = '';
+      document.getElementById('seoFeedback').value = '';
+      submitPostForm();
+    });
+    if (activeStep === 'post') {
+      var r = document.getElementById('seo-result') || document.getElementById('post-result');
+      (r || document.getElementById('step2')).scrollIntoView();
+    }
+  };
+</script>
+</body>
+</html>

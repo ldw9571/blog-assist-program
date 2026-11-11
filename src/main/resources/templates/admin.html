@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>관리자 · AI 블로그 도우미</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 20px; color: #333; font-size: 14px; }
+    .wrap { max-width: 950px; margin: 0 auto; }
+    h1 { font-size: 21px; color: #1a1a2e; margin: 6px 0 16px; }
+    h2 { font-size: 16px; color: #1a1a2e; border-left: 4px solid #1d4e89; padding-left: 10px; margin-bottom: 14px; }
+    .section { background: #fff; border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .msg { padding: 11px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+    .msg.err { background: #fff0f0; border: 1px solid #f5c6c6; color: #c0392b; }
+    .msg.ok { background: #effaf2; border: 1px solid #bfe5c9; color: #1e7b3c; }
+    .nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .nav a { padding: 6px 14px; border-radius: 16px; background: #fff; color: #444; text-decoration: none; font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .nav a:hover { color: #e63946; }
+    .alert-pending { background: #fff3e0; border: 1px solid #ffcc80; color: #e65100; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-weight: bold; font-size: 13px; }
+    .filter { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter button { border: 1px solid #ddd; background: #fff; border-radius: 14px; padding: 4px 12px; cursor: pointer; font-family: inherit; font-size: 12px; color: #555; }
+    .filter button.on { background: #1d4e89; border-color: #1d4e89; color: #fff; }
+    .user { border: 1px solid #e6e8ec; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+    .user.pending { border-color: #ffb74d; background: #fffaf2; }
+    .user.off { background: #fafafa; }
+    .u-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .u-id { font-weight: bold; font-size: 15px; color: #1a1a2e; }
+    .u-name { color: #666; font-size: 13px; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+    .b-PENDING { background: #ffe0b2; color: #e65100; }
+    .b-ACTIVE { background: #d7f3df; color: #1e7b3c; }
+    .b-SUSPENDED { background: #eee; color: #777; }
+    .b-expired { background: #ffdede; color: #c0392b; }
+    .b-admin { background: #1a1a2e; color: #fff; }
+    .b-feat { background: #eef4ff; color: #1d4e89; font-weight: normal; }
+    .u-meta { margin-top: 7px; font-size: 12px; color: #777; display: flex; gap: 14px; flex-wrap: wrap; }
+    .u-meta b { color: #333; }
+    .u-memo { margin-top: 6px; font-size: 12px; color: #8a6d3b; background: #fcf8e3; padding: 5px 9px; border-radius: 6px; }
+    .u-actions { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .u-actions form { display: inline; }
+    .btn { border: none; border-radius: 7px; padding: 7px 13px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: bold; }
+    .btn-blue { background: #1d4e89; color: #fff; }
+    .btn-green { background: #2e8b57; color: #fff; }
+    .btn-orange { background: #f57c00; color: #fff; }
+    .btn-gray { background: #eceff3; color: #444; }
+    .btn-red { background: #fff; color: #c0392b; border: 1px solid #f0b5b5; }
+    details.edit { margin-top: 10px; }
+    details.edit summary { cursor: pointer; color: #1d4e89; font-size: 12px; font-weight: bold; }
+    .edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 14px; margin-top: 10px;
+                 background: #f8f9fb; padding: 14px; border-radius: 8px; }
+    .edit-grid label { display: block; font-size: 11px; font-weight: bold; color: #666; margin-bottom: 4px; }
+    .edit-grid input[type=text], .edit-grid input[type=number], .edit-grid input[type=date], .edit-grid input[type=password],
+    .edit-grid select, .edit-grid textarea { width: 100%; padding: 7px 9px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; font-size: 13px; }
+    .edit-grid textarea { height: 54px; resize: vertical; }
+    .chk { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+    .chk label { font-weight: normal; color: #333; font-size: 13px; display: flex; gap: 6px; align-items: center; margin: 0; }
+    .full { grid-column: 1 / -1; }
+    .tip { font-size: 11px; color: #999; margin-top: 3px; }
+    .ip-state { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; }
+    .ip-state.on { background: #effaf2; border: 1px solid #bfe5c9; }
+    .ip-state.off { background: #f5f5f5; border: 1px solid #e0e0e0; }
+    .ip-state .t { font-weight: bold; flex: 1; min-width: 200px; }
+    .myip { font-size: 12px; color: #555; margin-bottom: 14px; }
+    .myip code { background: #eef4ff; color: #1d4e89; padding: 2px 7px; border-radius: 5px; font-size: 13px; }
+    .ip-add { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+    .ip-add input { padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eef0f3; }
+    th { font-size: 11px; color: #888; font-weight: bold; }
+    td form { display: inline; }
+    .sub-h { font-size: 13px; font-weight: bold; color: #444; margin: 18px 0 8px; }
+    .empty { color: #aaa; font-size: 13px; padding: 10px 0; }
+    .blocked-row input { padding: 5px 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px; width: 130px; font-family: inherit; }
+  </style>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: bar}"></div>
+<div class="wrap">
+  <h1>⚙️ 관리자</h1>
+
+  <div class="nav">
+    <a href="#users">👥 회원 관리</a>
+    <a href="#ip">🔒 접속 IP</a>
+    <a th:href="@{/}">🚗 중고차</a>
+    <a th:href="@{/seo}">🍽️ 콘텐츠</a>
+    <a th:href="@{/estate}">🏢 분양</a>
+  </div>
+
+  <div th:if="${errorMsg}" class="msg err" th:text="${errorMsg}"></div>
+  <div th:if="${infoMsg}" class="msg ok" th:text="${infoMsg}"></div>
+
+  <!-- ───────────── 회원 관리 ───────────── -->
+  <div class="section" id="users">
+    <h2>👥 회원 관리</h2>
+    <div th:if="${pendingCount > 0}" class="alert-pending" th:text="'⏳ 승인 대기 ' + ${pendingCount} + '명 — 크몽 결제를 확인하고 승인해 주세요'"></div>
+
+    <div class="filter">
+      <button type="button" class="on" data-f="all">전체</button>
+      <button type="button" data-f="PENDING">승인 대기</button>
+      <button type="button" data-f="ACTIVE">사용 중</button>
+      <button type="button" data-f="soon">만료 임박 (7일)</button>
+      <button type="button" data-f="expired">만료됨</button>
+      <button type="button" data-f="SUSPENDED">정지</button>
+    </div>
+
+    <div th:if="${#lists.isEmpty(rows)}" class="empty">아직 회원이 없어요.</div>
+
+    <div th:each="r : ${rows}" th:with="u=${r.user}"
+         class="user" th:id="'user-' + ${u.id}"
+         th:classappend="${u.status.name() == 'PENDING'} ? 'pending' : (${u.status.name() == 'SUSPENDED' or r.expired} ? 'off' : '')"
+         th:attr="data-status=${u.status.name()},data-expired=${r.expired},data-soon=${!r.expired and r.daysLeft <= 7}">
+
+      <div class="u-head">
+        <span class="u-id" th:text="${u.username}">id</span>
+        <span class="u-name" th:text="${u.displayName} + (${u.contact} != null and ${u.contact} != '' ? ' · 크몽 ' + ${u.contact} : '')"></span>
+        <span th:if="${u.admin}" class="badge b-admin">관리자</span>
+        <span th:unless="${u.admin}" class="badge" th:classappend="'b-' + ${u.status.name()}" th:text="${u.status.label}"></span>
+        <span th:if="${r.expired}" class="badge b-expired">기간 만료</span>
+        <span th:unless="${u.admin}" th:each="f : ${features}" th:if="${u.features.contains(f)}" class="badge b-feat" th:text="${f.label}"></span>
+      </div>
+
+      <div class="u-meta">
+        <span>이용기간:
+          <b th:if="${u.expiresAt == null}">제한 없음</b>
+          <b th:if="${u.expiresAt != null}" th:text="${u.expiresAt}"></b>
+          <span th:if="${u.expiresAt != null and !r.expired}" th:text="'(' + ${r.daysLeft} + '일 남음)'"></span>
+        </span>
+        <span>오늘 사용: <b th:text="${r.usedToday} + ' / ' + ${u.dailyLimit}"></b></span>
+        <span>가입: <span th:text="${#temporals.format(u.createdAt, 'yyyy-MM-dd')}"></span></span>
+        <span>최근 접속:
+          <span th:if="${u.lastLoginAt == null}">-</span>
+          <span th:if="${u.lastLoginAt != null}" th:text="${#temporals.format(u.lastLoginAt, 'MM-dd HH:mm')} + ' (' + ${u.lastLoginIp} + ')'"></span>
+        </span>
+      </div>
+      <div th:if="${u.adminMemo != null and u.adminMemo != ''}" class="u-memo" th:text="'📝 ' + ${u.adminMemo}"></div>
+
+      <div class="u-actions" th:unless="${u.admin}">
+        <form th:if="${u.status.name() == 'PENDING'}" th:action="@{/admin/users/{id}/approve(id=${u.id})}" method="post">
+          <button class="btn btn-green" type="submit">✅ 승인 (1개월)</button>
+        </form>
+        <form th:action="@{/admin/users/{id}/extend(id=${u.id})}" method="post">
+          <input type="hidden" name="months" value="1">
+          <button class="btn btn-blue" type="submit">📅 +1개월 연장</button>
+        </form>
+        <form th:action="@{/admin/users/{id}/extend(id=${u.id})}" method="post">
+          <input type="hidden" name="months" value="3">
+          <button class="btn btn-gray" type="submit">+3개월</button>
+        </form>
+      </div>
+
+      <details class="edit" th:open="${editId != null and editId == u.id}">
+        <summary>✏️ 상세 설정 (기능 · 기간 · 한도 · 메모 · 비밀번호)</summary>
+        <form th:action="@{/admin/users/{id}(id=${u.id})}" method="post">
+          <div class="edit-grid">
+            <div th:unless="${u.admin}">
+              <label>상태</label>
+              <select name="status">
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.label}" th:selected="${s == u.status}"></option>
+              </select>
+            </div>
+            <input th:if="${u.admin}" type="hidden" name="status" value="ACTIVE">
+            <div th:unless="${u.admin}">
+              <label>사용 가능한 기능</label>
+              <div class="chk">
+                <label th:each="f : ${features}">
+                  <input type="checkbox" name="features" th:value="${f.name()}" th:checked="${u.features.contains(f)}">
+                  <span th:text="${f.label}"></span>
+                </label>
+              </div>
+            </div>
+            <div th:unless="${u.admin}">
+              <label>이용 만료일 (이 날까지 사용)</label>
+              <input type="date" name="expiresAt" th:value="${u.expiresAt}">
+              <p class="tip">비워두면 기간 제한 없음</p>
+            </div>
+            <div>
+              <label>하루 사용 한도 (회)</label>
+              <input type="number" name="dailyLimit" min="0" max="10000" th:value="${u.dailyLimit}">
+              <p class="tip">AI 호출 1번 = 1회 · 0이면 사용 불가</p>
+            </div>
+            <div>
+              <label>이름 / 상호</label>
+              <input type="text" name="displayName" maxlength="60" th:value="${u.displayName}">
+            </div>
+            <div>
+              <label>크몽 닉네임 / 연락처</label>
+              <input type="text" name="contact" maxlength="120" th:value="${u.contact}">
+            </div>
+            <div class="full">
+              <label>관리자 메모 (결제 내역 등 · 회원에게는 안 보여요)</label>
+              <textarea name="adminMemo" maxlength="500" th:text="${u.adminMemo}"></textarea>
+            </div>
+            <div class="full"><button class="btn btn-blue" type="submit">💾 저장</button></div>
+          </div>
+        </form>
+
+        <div class="u-actions">
+          <form th:action="@{/admin/users/{id}/password(id=${u.id})}" method="post">
+            <input type="password" name="password" minlength="8" placeholder="새 비밀번호 (8자 이상)"
+                   style="padding:6px 9px;border:1px solid #ddd;border-radius:6px;font-size:12px;" required>
+            <button class="btn btn-gray" type="submit">🔑 비밀번호 재설정</button>
+          </form>
+          <form th:unless="${u.admin}" th:action="@{/admin/users/{id}/delete(id=${u.id})}" method="post"
+                onsubmit="return confirm('이 회원 계정을 삭제할까요? 되돌릴 수 없어요.');">
+            <button class="btn btn-red" type="submit">🗑️ 계정 삭제</button>
+          </form>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- ───────────── 접속 IP ───────────── -->
+  <div class="section" id="ip">
+    <h2>🔒 접속 허용 IP</h2>
+
+    <div th:if="${ipForceOff}" class="msg err">⚠️ 서버 설정(IP_FILTER_FORCE_OFF=true)으로 IP 제한이 강제로 꺼져 있어요. 아래 설정과 상관없이 누구나 접속돼요.</div>
+
+    <div class="ip-state" th:classappend="${ipEnabled} ? 'on' : 'off'">
+      <span class="t" th:if="${ipEnabled}">🔒 IP 제한 켜짐 — 아래 목록의 IP에서만 사이트가 열려요</span>
+      <span class="t" th:unless="${ipEnabled}">🔓 IP 제한 꺼짐 — 로그인만 하면 어디서든 접속돼요</span>
+      <form th:action="@{/admin/ip/toggle}" method="post">
+        <input type="hidden" name="enabled" th:value="${!ipEnabled}">
+        <button th:if="${ipEnabled}" class="btn btn-gray" type="submit"
+                onclick="return confirm('IP 제한을 끌까요? 로그인만 하면 어디서든 접속돼요.');">끄기</button>
+        <button th:unless="${ipEnabled}" class="btn btn-orange" type="submit"
+                onclick="return confirm('IP 제한을 켤까요? 목록에 없는 IP는 접속이 막혀요. (지금 관리자 IP는 자동 추가돼요)');">켜기</button>
+      </form>
+    </div>
+
+    <p class="myip">지금 내 IP: <code th:text="${myIp}"></code>
+      <span style="color:#999;"> · 고객 IP를 모르면, 고객이 접속했을 때 아래 '최근 차단된 IP'에 나타나요</span></p>
+
+    <form class="ip-add" th:action="@{/admin/ip/add}" method="post">
+      <input type="text" name="ip" placeholder="IP 또는 대역 (예: 211.234.10.5)" required style="flex:1;min-width:200px;">
+      <input type="text" name="memo" placeholder="메모 (예: 홍길동 사무실)" maxlength="120" style="flex:1;min-width:160px;">
+      <button class="btn btn-blue" type="submit">+ 허용 추가</button>
+    </form>
+
+    <div class="sub-h">⚠️ 최근 차단된 IP <span style="font-weight:normal;color:#999;">(서버 재시작 시 초기화)</span></div>
+    <div th:if="${#lists.isEmpty(blockedList)}" class="empty">차단된 접속이 없어요.</div>
+    <table th:unless="${#lists.isEmpty(blockedList)}">
+      <tr><th>IP</th><th>마지막 시도</th><th>횟수</th><th></th></tr>
+      <tr th:each="b : ${blockedList}" class="blocked-row">
+        <td><b th:text="${b.ip}"></b></td>
+        <td th:text="${#temporals.format(b.at, 'MM-dd HH:mm')}"></td>
+        <td th:text="${b.count}"></td>
+        <td>
+          <form th:action="@{/admin/ip/add}" method="post">
+            <input type="hidden" name="ip" th:value="${b.ip}">
+            <input type="text" name="memo" placeholder="메모 (누구 IP?)" maxlength="120">
+            <button class="btn btn-green" type="submit">허용</button>
+          </form>
+        </td>
+      </tr>
+    </table>
+
+    <div class="sub-h">✅ 허용된 IP</div>
+    <div th:if="${#lists.isEmpty(ipList)}" class="empty">허용된 IP가 없어요.</div>
+    <table th:unless="${#lists.isEmpty(ipList)}">
+      <tr><th>IP / 대역</th><th>메모</th><th>추가일</th><th></th></tr>
+      <tr th:each="ip : ${ipList}">
+        <td><b th:text="${ip.ip}"></b></td>
+        <td th:text="${ip.memo}"></td>
+        <td th:text="${#temporals.format(ip.createdAt, 'yyyy-MM-dd')}"></td>
+        <td>
+          <form th:action="@{/admin/ip/{id}/delete(id=${ip.id})}" method="post"
+                onsubmit="return confirm('이 IP를 허용 목록에서 지울까요?');">
+            <button class="btn btn-red" type="submit">삭제</button>
+          </form>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<script>
+  // 회원 목록 필터
+  document.querySelectorAll('.filter button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter button').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      const f = btn.dataset.f;
+      document.querySelectorAll('.user').forEach(el => {
+        let show = f === 'all'
+          || (f === 'expired' && el.dataset.expired === 'true')
+          || (f === 'soon' && el.dataset.soon === 'true' && el.dataset.status === 'ACTIVE')
+          || el.dataset.status === f;
+        el.style.display = show ? '' : 'none';
+      });
+    });
+  });
+</script>
+</body>
+</html>
