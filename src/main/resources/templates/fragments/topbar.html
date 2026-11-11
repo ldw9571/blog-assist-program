@@ -17,12 +17,14 @@
     .topbar-x .tb-admin { color: #fff; background: #1a1a2e; padding: 4px 10px; border-radius: 12px; font-size: 12px; }
     .topbar-x .tb-admin:hover { color: #fff; opacity: .85; }
     .topbar-x form { display: inline; margin: 0; }
+    .topbar-x .tb-nokey { background: #fff0f0; color: #c0392b; padding: 3px 9px; border-radius: 12px; font-size: 12px; font-weight: bold; }
     .topbar-x button { background: none; border: 1px solid #ddd; border-radius: 12px; padding: 3px 10px; cursor: pointer;
                        font-family: inherit; font-size: 12px; color: #666; }
   </style>
   <span class="tb-user" th:text="${me.displayName} + ' 님'">회원 님</span>
   <span th:if="${me.hasExpiry()}" class="tb-period" th:classappend="${me.daysLeft <= 5} ? 'soon'"
         th:text="'이용기간 ~ ' + ${me.expiresAt} + ' (' + (${me.daysLeft} == 0 ? '오늘까지' : ${me.daysLeft} + '일 남음') + ')'"></span>
+  <a th:if="${!me.hasKey}" th:href="@{/account}" class="tb-nokey">⚠️ API 키 미등록 — 등록하기</a>
   <span class="tb-sp"></span>
   <a th:if="${me.admin}" class="tb-admin" th:href="@{/admin}">⚙️ 관리자</a>
   <a th:href="@{/account}">내 정보</a>

@@ -51,6 +51,16 @@ public class AppUser {
 
     private int dailyLimit;
 
+    /** 회원이 직접 등록한 Gemini API 키 (암호화 저장) */
+    @Column(length = 1000)
+    private String geminiKeyEnc;
+
+    /** 화면 표시용 키 끝 4자리 */
+    @Column(length = 8)
+    private String geminiKeyTail;
+
+    private LocalDateTime geminiKeyUpdatedAt;
+
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime lastLoginAt;
     @Column(length = 64)
@@ -68,6 +78,8 @@ public class AppUser {
     public Set<Feature> effectiveFeatures() {
         return admin ? EnumSet.allOf(Feature.class) : features;
     }
+
+    public boolean hasApiKey() { return geminiKeyEnc != null && !geminiKeyEnc.isBlank(); }
 
     // ── getter / setter ──
     public Long getId() { return id; }
@@ -91,6 +103,12 @@ public class AppUser {
     public void setExpiresAt(LocalDate expiresAt) { this.expiresAt = expiresAt; }
     public int getDailyLimit() { return dailyLimit; }
     public void setDailyLimit(int dailyLimit) { this.dailyLimit = dailyLimit; }
+    public String getGeminiKeyEnc() { return geminiKeyEnc; }
+    public void setGeminiKeyEnc(String geminiKeyEnc) { this.geminiKeyEnc = geminiKeyEnc; }
+    public String getGeminiKeyTail() { return geminiKeyTail; }
+    public void setGeminiKeyTail(String geminiKeyTail) { this.geminiKeyTail = geminiKeyTail; }
+    public LocalDateTime getGeminiKeyUpdatedAt() { return geminiKeyUpdatedAt; }
+    public void setGeminiKeyUpdatedAt(LocalDateTime t) { this.geminiKeyUpdatedAt = t; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }

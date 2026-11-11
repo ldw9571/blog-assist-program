@@ -1,5 +1,8 @@
 package com.rentjcar.blogai.service;
 
+import com.rentjcar.blogai.account.AppUser;
+import com.rentjcar.blogai.account.CurrentUserService;
+import com.rentjcar.blogai.account.KeyCipher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -7,13 +10,17 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Gemini API 공통 호출 (부동산 / SEO / 차량 블로그 공용)
  *
- *  순서: 1번 키로 모델 4개 → 다 막히면 2번 키(GEMINI_API_KEY_2)로 모델 4개
+ *  사용하는 키: 로그인한 회원이 직접 등록한 키
+ *    (관리자는 본인 키가 없으면 서버 환경변수 GEMINI_API_KEY / GEMINI_API_KEY_2 사용)
+ *  순서: 1번 키로 모델 4개 → 다 막히면 2번 키로 모델 4개
  *  - 429(한도 초과): 재시도 없이 바로 다음으로, 10분간 건너뜀
  *  - 503/500(혼잡): 2초 뒤 1번만 재시도, 안 되면 다음으로, 2분간 건너뜀
  *  - 404(모델 없음): 1시간 건너뜀
@@ -23,11 +30,19 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class GeminiClient {
 
-    @Value("${gemini.api.key}")
-    private String apiKey1;
+    @Value("${gemini.api.key:}")    // 관리자 전용 예비 (없어도 됨)
+    private String serverKey1;
 
-    @Value("${gemini.api.key2:}")   // 없으면 빈 값 → 2번 키 사용 안 함
-    private String apiKey2;
+    @Value("${gemini.api.key2:}")
+    private String serverKey2;
+
+    private final CurrentUserService currentUser;
+    private final KeyCipher cipher;
+
+    public GeminiClient(CurrentUserService currentUser, KeyCipher cipher) {
+        this.currentUser = currentUser;
+        this.cipher = cipher;
+    }
 
     private static final String[] MODELS = {
             "gemini-3.8-flash",     // 기본
@@ -42,7 +57,7 @@ public class GeminiClient {
     private static final long COOLDOWN_BUSY_MS  =  2 * 60 * 1000L;  // 503/500
     private static final long COOLDOWN_LONG_MS  = 60 * 60 * 1000L;  // 404, 403, 402
 
-    /** "키번호|모델" → 이 시각까지 건너뛰기 */
+    /** "키지문|모델" → 이 시각까지 건너뛰기 (회원마다 키가 달라서 키 자체로 구분) */
     private final Map<String, Long> cooldownUntil = new ConcurrentHashMap<>();
 
     private volatile String lastModel = MODELS[0];
@@ -50,14 +65,33 @@ public class GeminiClient {
     public String getLastModel() { return lastModel; }
 
     private static class Route {
-        final int keyNo; final String key; final String model;
-        Route(int keyNo, String key, String model) { this.keyNo = keyNo; this.key = key; this.model = model; }
-        String id() { return keyNo + "|" + model; }
+        final int keyNo; final String key; final String model; final String fp;
+        Route(int keyNo, String key, String model) {
+            this.keyNo = keyNo; this.key = key; this.model = model; this.fp = fingerprint(key);
+        }
+        String id() { return fp + "|" + model; }
+    }
+
+    /** 지금 로그인한 회원이 쓸 키 목록 */
+    private List<String> keysForCurrentUser() {
+        AppUser u = currentUser.get();
+        if (u == null) throw new RuntimeException("NO_API_KEY");
+        List<String> keys = new ArrayList<>();
+        if (u.hasApiKey()) {
+            String k = cipher.decrypt(u.getGeminiKeyEnc());
+            if (k == null) throw new RuntimeException("KEY_DECRYPT_FAILED");
+            keys.add(k);
+        } else if (u.isAdmin()) {
+            if (serverKey1 != null && !serverKey1.isBlank()) keys.add(serverKey1.trim());
+            if (serverKey2 != null && !serverKey2.isBlank()) keys.add(serverKey2.trim());
+        }
+        if (keys.isEmpty()) throw new RuntimeException("NO_API_KEY");
+        return keys;
     }
 
     public String generate(String prompt) {
         RuntimeException last = null;
-        for (Route r : routesToTry()) {
+        for (Route r : routesToTry(keysForCurrentUser())) {
             for (int attempt = 0; attempt < 2; attempt++) {
                 try {
                     String text = callOnce(r.key, r.model, prompt);
@@ -66,7 +100,10 @@ public class GeminiClient {
                     return text;
                 } catch (HttpStatusCodeException e) {
                     int code = e.getStatusCode().value();
-                    if (code == 400) throw new RuntimeException("API_ERROR:400");   // 요청 자체 문제 → 바꿔도 소용없음
+                    if (code == 400) {                         // 요청 자체 문제 → 바꿔도 소용없음
+                        if (isInvalidKey(e)) throw new RuntimeException("INVALID_KEY");
+                        throw new RuntimeException("API_ERROR:400");
+                    }
                     if (code >= 500 && attempt == 0) {        // 혼잡 → 1번만 다시
                         last = new RuntimeException("BUSY");
                         sleep(BUSY_RETRY_WAIT_MS);
@@ -77,7 +114,7 @@ public class GeminiClient {
                     else if (code == 404) { last = new RuntimeException("API_ERROR:404");  rest(r.id(), COOLDOWN_LONG_MS); }
                     else if (code == 403 || code == 402) {     // 이 키 자체가 안 됨 → 이 키의 모든 모델 건너뜀
                         last = new RuntimeException(code == 403 ? "FORBIDDEN" : "PAYMENT_REQUIRED");
-                        for (String m : MODELS) rest(r.keyNo + "|" + m, COOLDOWN_LONG_MS);
+                        for (String m : MODELS) rest(r.fp + "|" + m, COOLDOWN_LONG_MS);
                     }
                     else                  { last = new RuntimeException("API_ERROR:" + code); }
                     break;                                     // 다음으로
@@ -92,11 +129,10 @@ public class GeminiClient {
     }
 
     /** 키1 모델들 → 키2 모델들 순서. 쉬는 중인 건 빼고, 전부 쉬는 중이면 전체 */
-    private List<Route> routesToTry() {
+    private List<Route> routesToTry(List<String> keys) {
         List<Route> all = new ArrayList<>();
-        for (String m : MODELS) all.add(new Route(1, apiKey1, m));
-        if (apiKey2 != null && !apiKey2.isBlank()) {
-            for (String m : MODELS) all.add(new Route(2, apiKey2.trim(), m));
+        for (int i = 0; i < keys.size(); i++) {
+            for (String m : MODELS) all.add(new Route(i + 1, keys.get(i), m));
         }
         long now = System.currentTimeMillis();
         List<Route> ready = new ArrayList<>();
@@ -105,6 +141,46 @@ public class GeminiClient {
             if (until == null || until <= now) ready.add(r);
         }
         return ready.isEmpty() ? all : ready;
+    }
+
+    // ─────────────────────────────────────────
+    // 키 등록할 때 '실제로 되는 키인지' 확인
+    //  OK / INVALID_KEY / QUOTA_EXCEEDED / FORBIDDEN / BUSY / NETWORK / API_ERROR:코드
+    // ─────────────────────────────────────────
+    public String testKey(String key) {
+        String result = "API_ERROR";
+        for (String model : MODELS) {
+            try {
+                callOnce(key, model, "OK 라고만 답해줘.");
+                return "OK";
+            } catch (HttpStatusCodeException e) {
+                int code = e.getStatusCode().value();
+                if (code == 404) { result = "API_ERROR:404"; continue; }   // 이 모델이 없으면 다음 모델로
+                if (code == 400) return isInvalidKey(e) ? "INVALID_KEY" : "API_ERROR:400";
+                if (code == 429) return "QUOTA_EXCEEDED";
+                if (code == 403) return "FORBIDDEN";
+                if (code >= 500) { result = "BUSY"; continue; }
+                return "API_ERROR:" + code;
+            } catch (ResourceAccessException e) {
+                return "NETWORK";
+            } catch (RuntimeException e) {
+                if ("EMPTY_RESPONSE".equals(e.getMessage())) return "OK";   // 응답은 왔으니 키는 정상
+                result = e.getMessage();
+            }
+        }
+        return result;
+    }
+
+    private static boolean isInvalidKey(HttpStatusCodeException e) {
+        String body = e.getResponseBodyAsString();
+        return body != null && (body.contains("API_KEY_INVALID") || body.contains("API key not valid"));
+    }
+
+    private static String fingerprint(String key) {
+        try {
+            byte[] h = MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(h, 0, 6);
+        } catch (Exception e) { return String.valueOf(key.hashCode()); }
     }
 
     private void rest(String id, long ms) {

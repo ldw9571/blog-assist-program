@@ -50,3 +50,6 @@ estate-data/
 ### 회원 DB (로컬 실행 시 생성) ###
 db/
 usage_count.json
+
+### 암호화 비밀키 (로컬 실행 시 생성) ###
+secret.key
