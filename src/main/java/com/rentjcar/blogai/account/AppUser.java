@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -51,15 +53,20 @@ public class AppUser {
 
     private int dailyLimit;
 
-    /** 회원이 직접 등록한 Gemini API 키 (암호화 저장) */
+    /** 회원이 직접 등록한 Gemini API 키들 (순서대로 사용, 최대 MAX_API_KEYS개) */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "app_user_api_key", joinColumns = @JoinColumn(name = "user_id"))
+    @OrderColumn(name = "sort_no")
+    private List<ApiKeyEntry> apiKeys = new ArrayList<>();
+
+    /** (예전 버전) 키 1개 저장 칸 → 시작할 때 apiKeys 로 옮기고 비움 */
     @Column(length = 1000)
     private String geminiKeyEnc;
-
-    /** 화면 표시용 키 끝 4자리 */
     @Column(length = 8)
     private String geminiKeyTail;
-
     private LocalDateTime geminiKeyUpdatedAt;
+
+    public static final int MAX_API_KEYS = 3;
 
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime lastLoginAt;
@@ -79,7 +86,16 @@ public class AppUser {
         return admin ? EnumSet.allOf(Feature.class) : features;
     }
 
-    public boolean hasApiKey() { return geminiKeyEnc != null && !geminiKeyEnc.isBlank(); }
+    public boolean hasApiKey() { return !apiKeys.isEmpty(); }
+    public int getApiKeyCount() { return apiKeys.size(); }
+
+    /** 예전 단일 키 칸 → 목록으로 옮김. 옮겼으면 true */
+    public boolean migrateLegacyKey() {
+        if (geminiKeyEnc == null || geminiKeyEnc.isBlank()) return false;
+        if (apiKeys.isEmpty()) apiKeys.add(new ApiKeyEntry(geminiKeyEnc, geminiKeyTail, geminiKeyUpdatedAt));
+        geminiKeyEnc = null; geminiKeyTail = null; geminiKeyUpdatedAt = null;
+        return true;
+    }
 
     // ── getter / setter ──
     public Long getId() { return id; }
@@ -103,12 +119,7 @@ public class AppUser {
     public void setExpiresAt(LocalDate expiresAt) { this.expiresAt = expiresAt; }
     public int getDailyLimit() { return dailyLimit; }
     public void setDailyLimit(int dailyLimit) { this.dailyLimit = dailyLimit; }
-    public String getGeminiKeyEnc() { return geminiKeyEnc; }
-    public void setGeminiKeyEnc(String geminiKeyEnc) { this.geminiKeyEnc = geminiKeyEnc; }
-    public String getGeminiKeyTail() { return geminiKeyTail; }
-    public void setGeminiKeyTail(String geminiKeyTail) { this.geminiKeyTail = geminiKeyTail; }
-    public LocalDateTime getGeminiKeyUpdatedAt() { return geminiKeyUpdatedAt; }
-    public void setGeminiKeyUpdatedAt(LocalDateTime t) { this.geminiKeyUpdatedAt = t; }
+    public List<ApiKeyEntry> getApiKeys() { return apiKeys; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(LocalDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }

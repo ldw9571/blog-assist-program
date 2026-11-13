@@ -1,5 +1,6 @@
 package com.rentjcar.blogai.service;
 
+import com.rentjcar.blogai.account.ApiKeyEntry;
 import com.rentjcar.blogai.account.AppUser;
 import com.rentjcar.blogai.account.CurrentUserService;
 import com.rentjcar.blogai.account.KeyCipher;
@@ -61,7 +62,7 @@ public class GeminiClient {
     private final Map<String, Long> cooldownUntil = new ConcurrentHashMap<>();
 
     private volatile String lastModel = MODELS[0];
-    /** 마지막으로 성공한 모델 (2번 키면 뒤에 "(예비키)" 표시) */
+    /** 마지막으로 성공한 모델 (2번째 이후 키면 뒤에 "(N번 키)" 표시) */
     public String getLastModel() { return lastModel; }
 
     private static class Route {
@@ -78,9 +79,12 @@ public class GeminiClient {
         if (u == null) throw new RuntimeException("NO_API_KEY");
         List<String> keys = new ArrayList<>();
         if (u.hasApiKey()) {
-            String k = cipher.decrypt(u.getGeminiKeyEnc());
-            if (k == null) throw new RuntimeException("KEY_DECRYPT_FAILED");
-            keys.add(k);
+            // 등록한 순서대로: 1번 키가 한도 초과/막힘이면 2번, 3번 키로 자동 전환
+            for (ApiKeyEntry e : u.getApiKeys()) {
+                String k = cipher.decrypt(e.getEnc());
+                if (k != null) keys.add(k);
+            }
+            if (keys.isEmpty()) throw new RuntimeException("KEY_DECRYPT_FAILED");
         } else if (u.isAdmin()) {
             if (serverKey1 != null && !serverKey1.isBlank()) keys.add(serverKey1.trim());
             if (serverKey2 != null && !serverKey2.isBlank()) keys.add(serverKey2.trim());
@@ -91,18 +95,25 @@ public class GeminiClient {
 
     public String generate(String prompt) {
         RuntimeException last = null;
+        Set<String> deadKeys = new HashSet<>();               // 이번 요청에서 '키 자체가 안 됨'으로 판정된 키
         for (Route r : routesToTry(keysForCurrentUser())) {
+            if (deadKeys.contains(r.fp)) continue;
             for (int attempt = 0; attempt < 2; attempt++) {
                 try {
                     String text = callOnce(r.key, r.model, prompt);
-                    lastModel = r.model + (r.keyNo == 2 ? " (예비키)" : "");
+                    lastModel = r.model + (r.keyNo > 1 ? " (" + r.keyNo + "번 키)" : "");
                     cooldownUntil.remove(r.id());
                     return text;
                 } catch (HttpStatusCodeException e) {
                     int code = e.getStatusCode().value();
-                    if (code == 400) {                         // 요청 자체 문제 → 바꿔도 소용없음
-                        if (isInvalidKey(e)) throw new RuntimeException("INVALID_KEY");
-                        throw new RuntimeException("API_ERROR:400");
+                    if (code == 400) {
+                        if (isInvalidKey(e)) {                 // 잘못된 키 → 이 키는 건너뛰고 다음 키로
+                            last = new RuntimeException("INVALID_KEY");
+                            deadKeys.add(r.fp);
+                            for (String m : MODELS) rest(r.fp + "|" + m, COOLDOWN_LONG_MS);
+                            break;
+                        }
+                        throw new RuntimeException("API_ERROR:400");   // 요청 자체 문제 → 바꿔도 소용없음
                     }
                     if (code >= 500 && attempt == 0) {        // 혼잡 → 1번만 다시
                         last = new RuntimeException("BUSY");
@@ -115,6 +126,7 @@ public class GeminiClient {
                     else if (code == 403 || code == 402) {     // 이 키 자체가 안 됨 → 이 키의 모든 모델 건너뜀
                         last = new RuntimeException(code == 403 ? "FORBIDDEN" : "PAYMENT_REQUIRED");
                         for (String m : MODELS) rest(r.fp + "|" + m, COOLDOWN_LONG_MS);
+                        deadKeys.add(r.fp);
                     }
                     else                  { last = new RuntimeException("API_ERROR:" + code); }
                     break;                                     // 다음으로

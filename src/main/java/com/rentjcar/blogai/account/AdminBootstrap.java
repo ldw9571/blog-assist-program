@@ -56,6 +56,10 @@ public class AdminBootstrap implements ApplicationRunner {
             if (generated) log.warn(" 임시 비밀번호: {}  (로그인 후 관리자 화면에서 바꿔주세요)", pw);
             log.warn("==================================================");
         }
+        // 예전 버전(키 1개 저장)에서 올라온 회원 키를 새 목록 방식으로 옮김
+        for (AppUser u : users.findAll()) {
+            if (u.migrateLegacyKey()) users.save(u);
+        }
         users.findFirstByAdminTrueOrderByIdAsc().ifPresent(a -> {
             int moved = estateStorage.migrateLegacyTo(a.getId());
             if (moved > 0) log.warn("예전 분양 현장 {}개를 관리자({}) 자료로 옮겼어요.", moved, a.getUsername());

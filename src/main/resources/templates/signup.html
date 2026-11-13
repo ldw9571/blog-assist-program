@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>가입 신청 · AI 블로그 도우미</title>
   <style th:replace="~{fragments/authstyle :: css}"></style>
+  <style>
+    .keyguide { background: #f8f9fb; border-radius: 8px; padding: 12px 14px; margin-top: 10px; font-size: 12px; line-height: 1.8; color: #444; }
+    .keyguide ol { padding-left: 18px; }
+    .keyguide a { color: #1d4e89; font-weight: bold; }
+    .keyguide p { margin-top: 4px; color: #8a6d3b; font-size: 11px; }
+  </style>
 </head>
 <body>
 <div class="box">
@@ -13,7 +19,8 @@
 
   <div th:if="${errorMsg}" class="msg err" th:text="${errorMsg}"></div>
 
-  <form th:action="@{/signup}" method="post">
+  <form th:action="@{/signup}" method="post"
+        onsubmit="var b=document.getElementById('signupBtn'); b.innerText='API 키 확인 중...'; b.disabled=true;">
     <label for="username">아이디</label>
     <input type="text" id="username" name="username" th:value="${username}" maxlength="20" required
            autocomplete="username" pattern="[a-zA-Z0-9_]{4,20}">
@@ -33,7 +40,27 @@
     <input type="text" id="contact" name="contact" th:value="${contact}" maxlength="120" required>
     <p class="hint">결제하신 크몽 닉네임을 적어주세요. 결제 확인에 사용해요.</p>
 
-    <button type="submit" class="btn">가입 신청</button>
+    <label for="apiKey">Gemini API 키 <span style="font-weight:normal;color:#999;">(1개 필수 · 최대 3개)</span></label>
+    <input type="password" id="apiKey" name="apiKey" maxlength="200" required autocomplete="off" spellcheck="false"
+           placeholder="1번 키 (필수)">
+    <input type="password" name="apiKey2" maxlength="200" autocomplete="off" spellcheck="false"
+           placeholder="2번 키 (선택)" style="margin-top:6px;">
+    <input type="password" name="apiKey3" maxlength="200" autocomplete="off" spellcheck="false"
+           placeholder="3번 키 (선택)" style="margin-top:6px;">
+    <p class="hint">블로그 글은 회원님 본인의 API 키로 만들어져요. 1번 키가 한도에 걸리면 2번, 3번 키로 자동으로 넘어가요.<br>
+      <b>다른 구글 계정(또는 다른 프로젝트)에서 만든 키</b>여야 효과가 있어요. 같은 프로젝트의 키는 한도를 같이 써요.<br>
+      가입할 때 실제로 작동하는 키인지 확인하고, 암호화해서 저장해요. 나중에 '내 정보'에서 추가·삭제할 수 있어요.</p>
+    <div class="keyguide">
+      <b>📋 API 키 발급 방법 (무료, 약 1분)</b>
+      <ol>
+        <li><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">구글 AI 스튜디오 API 키 페이지</a>에 구글 계정으로 로그인</li>
+        <li><b>API 키 만들기(Create API key)</b> 클릭 → 프로젝트는 새로 만들기</li>
+        <li>만들어진 키를 복사해서 위 칸에 붙여넣기</li>
+      </ol>
+      <p>⚠️ 무료 등급은 하루·분당 사용 횟수 제한이 있고, 입력한 내용이 구글 서비스 개선에 쓰일 수 있어요.</p>
+    </div>
+
+    <button type="submit" class="btn" id="signupBtn">가입 신청</button>
   </form>
   <p class="foot">이미 계정이 있나요? <a th:href="@{/login}">로그인</a></p>
 </div>

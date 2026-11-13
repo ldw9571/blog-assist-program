@@ -128,7 +128,7 @@
         </span>
         <span>오늘 사용: <b th:text="${r.usedToday} + ' / ' + ${u.dailyLimit}"></b></span>
         <span>API 키:
-          <b th:if="${u.hasApiKey()}" style="color:#1e7b3c;" th:text="'등록됨 (…' + ${u.geminiKeyTail} + ')'"></b>
+          <b th:if="${u.hasApiKey()}" style="color:#1e7b3c;" th:text="${u.apiKeyCount} + '개 등록'"></b>
           <b th:unless="${u.hasApiKey()}" style="color:#c0392b;" th:text="${u.admin} ? '미등록 (서버 키 사용)' : '미등록'"></b>
         </span>
         <span>가입: <span th:text="${#temporals.format(u.createdAt, 'yyyy-MM-dd')}"></span></span>

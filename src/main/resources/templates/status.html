@@ -14,9 +14,6 @@
       <h1 style="margin-top:8px;">승인 대기 중이에요</h1>
       <p class="sub" style="margin-top:10px;">관리자가 결제를 확인하면 바로 이용할 수 있어요.<br>
         크몽 메시지로 가입한 아이디(<b th:text="${user.username}"></b>)를 알려주시면 더 빨리 처리돼요.</p>
-      <div class="msg info" style="text-align:left;">💡 승인 후에는 본인의 <b>Gemini API 키</b>를 등록해야 사용할 수 있어요.<br>
-        기다리는 동안 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">구글 AI 스튜디오</a>에서
-        무료로 발급받아 <a th:href="@{/account}">내 정보</a>에서 미리 등록해 두셔도 돼요.</div>
     </div>
     <div th:case="'suspended'">
       <div style="font-size:42px;">⛔</div>
