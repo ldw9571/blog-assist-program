@@ -6,6 +6,7 @@ import com.rentjcar.blogai.account.CurrentUserService;
 import com.rentjcar.blogai.account.KeyCipher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
@@ -160,27 +161,24 @@ public class GeminiClient {
     //  OK / INVALID_KEY / QUOTA_EXCEEDED / FORBIDDEN / BUSY / NETWORK / API_ERROR:코드
     // ─────────────────────────────────────────
     public String testKey(String key) {
-        String result = "API_ERROR";
-        for (String model : MODELS) {
-            try {
-                callOnce(key, model, "OK 라고만 답해줘.");
-                return "OK";
-            } catch (HttpStatusCodeException e) {
-                int code = e.getStatusCode().value();
-                if (code == 404) { result = "API_ERROR:404"; continue; }   // 이 모델이 없으면 다음 모델로
-                if (code == 400) return isInvalidKey(e) ? "INVALID_KEY" : "API_ERROR:400";
-                if (code == 429) return "QUOTA_EXCEEDED";
-                if (code == 403) return "FORBIDDEN";
-                if (code >= 500) { result = "BUSY"; continue; }
-                return "API_ERROR:" + code;
-            } catch (ResourceAccessException e) {
-                return "NETWORK";
-            } catch (RuntimeException e) {
-                if ("EMPTY_RESPONSE".equals(e.getMessage())) return "OK";   // 응답은 왔으니 키는 정상
-                result = e.getMessage();
-            }
+        // 글 생성(수십 초 걸림) 대신 '모델 목록 조회'로 빠르게 확인 → 몇 초 안에 끝나고 사용 한도도 안 씀
+        try {
+            String url = API_BASE.substring(0, API_BASE.length() - 1) + "?pageSize=1&key=" + key;
+            ResponseEntity<Map> res = quickClient.getForEntity(url, Map.class);
+            return res.getStatusCode().is2xxSuccessful() ? "OK" : "API_ERROR:" + res.getStatusCode().value();
+        } catch (HttpStatusCodeException e) {
+            int code = e.getStatusCode().value();
+            if (code == 400) return isInvalidKey(e) ? "INVALID_KEY" : "API_ERROR:400";
+            if (code == 401) return "INVALID_KEY";
+            if (code == 429) return "QUOTA_EXCEEDED";
+            if (code == 403) return "FORBIDDEN";
+            if (code >= 500) return "BUSY";
+            return "API_ERROR:" + code;
+        } catch (ResourceAccessException e) {
+            return "NETWORK";
+        } catch (RuntimeException e) {
+            return "API_ERROR";
         }
-        return result;
     }
 
     private static boolean isInvalidKey(HttpStatusCodeException e) {
@@ -199,9 +197,21 @@ public class GeminiClient {
         cooldownUntil.put(id, System.currentTimeMillis() + ms);
     }
 
+    /** 키 확인용: 최대 10초 */
+    private final RestTemplate quickClient = client(5_000, 10_000);
+    /** 글 생성용: 긴 글도 기다리되, 무한정 멈추지는 않게 3분 */
+    private final RestTemplate genClient = client(10_000, 180_000);
+
+    private static RestTemplate client(int connectMs, int readMs) {
+        SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
+        f.setConnectTimeout(connectMs);
+        f.setReadTimeout(readMs);
+        return new RestTemplate(f);
+    }
+
     @SuppressWarnings("unchecked")
     private String callOnce(String key, String model, String prompt) {
-        RestTemplate restTemplate = new RestTemplate();
+        RestTemplate restTemplate = genClient;
         String url = API_BASE + model + ":generateContent?key=" + key;
 
         HttpHeaders headers = new HttpHeaders();
