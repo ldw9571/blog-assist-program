@@ -1,0 +1,58 @@
+# 홈서버 배포: 운영(main) + 테스트(develop) + HTTPS(Caddy) + 무료 주소(DuckDNS)
+#  폴더 구조 (/opt/blog)
+#    docker-compose.yml, Caddyfile, .env, update.sh   ← 이 deploy 폴더 파일들
+#    prod/  ← git clone -b main    (운영 코드)
+#    test/  ← git clone -b develop (테스트 코드)
+#    data/prod, data/test          ← 회원 DB·자료 (자동 생성, 백업 대상)
+services:
+  prod:
+    build: ./prod
+    container_name: blog-prod
+    restart: unless-stopped
+    environment:
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: ${PROD_ADMIN_PASSWORD}
+      APP_SECRET: ${PROD_APP_SECRET}
+      JAVA_OPTS: "-Xmx768m"
+    volumes:
+      - ./data/prod:/data
+
+  test:
+    build: ./test
+    container_name: blog-test
+    restart: unless-stopped
+    environment:
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD}
+      APP_SECRET: ${TEST_APP_SECRET}
+      JAVA_OPTS: "-Xmx512m"
+    volumes:
+      - ./data/test:/data
+
+  # HTTPS 자물쇠 자동 발급·갱신 (Let's Encrypt)
+  caddy:
+    image: caddy:2
+    container_name: blog-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PROD_DOMAIN: ${PROD_DOMAIN}
+      TEST_DOMAIN: ${TEST_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+    depends_on:
+      - prod
+      - test
+
+  # 집 인터넷 IP가 바뀌어도 DuckDNS 주소가 따라가도록 5분마다 갱신
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: blog-duckdns
+    restart: unless-stopped
+    environment:
+      SUBDOMAINS: ${DUCKDNS_SUBDOMAINS}
+      TOKEN: ${DUCKDNS_TOKEN}
+      TZ: Asia/Seoul

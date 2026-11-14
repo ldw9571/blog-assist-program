@@ -1,0 +1,17 @@
+# 운영 주소
+{$PROD_DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 40MB
+	}
+	reverse_proxy prod:8080
+}
+
+# 테스트 주소
+{$TEST_DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 40MB
+	}
+	reverse_proxy test:8080
+}
