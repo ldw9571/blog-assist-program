@@ -1,4 +1,7 @@
-# 홈서버 배포: 운영(main) + 테스트(develop) + HTTPS(Caddy) + 무료 주소(DuckDNS)
+# 홈서버 배포: 운영(main) + 테스트(develop) + 무료 주소(DuckDNS)
+#  HTTPS·주소 연결은 서버의 Apache 가 맡음 (apache/zz-blog.conf 참고)
+#   운영 → 127.0.0.1:8081, 테스트 → 127.0.0.1:8082 (서버 안에서만 열림)
+#  ※ Apache 가 없는 서버라면 Caddy 사용:  docker compose --profile caddy up -d
 #  폴더 구조 (/opt/blog)
 #    docker-compose.yml, Caddyfile, .env, update.sh   ← 이 deploy 폴더 파일들
 #    prod/  ← git clone -b main    (운영 코드)
@@ -14,6 +17,8 @@ services:
       ADMIN_PASSWORD: ${PROD_ADMIN_PASSWORD}
       APP_SECRET: ${PROD_APP_SECRET}
       JAVA_OPTS: "-Xmx768m"
+    ports:
+      - "127.0.0.1:8081:8080"
     volumes:
       - ./data/prod:/data
 
@@ -26,13 +31,16 @@ services:
       ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD}
       APP_SECRET: ${TEST_APP_SECRET}
       JAVA_OPTS: "-Xmx512m"
+    ports:
+      - "127.0.0.1:8082:8080"
     volumes:
       - ./data/test:/data
 
-  # HTTPS 자물쇠 자동 발급·갱신 (Let's Encrypt)
+  # (선택) Apache 없는 서버용 HTTPS 자동 발급 — 기본으로는 실행 안 됨
   caddy:
     image: caddy:2
     container_name: blog-caddy
+    profiles: ["caddy"]
     restart: unless-stopped
     ports:
       - "80:80"
