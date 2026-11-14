@@ -1,6 +1,6 @@
 # 홈서버 배포: 운영(main) + 테스트(develop) + 무료 주소(DuckDNS)
 #  HTTPS·주소 연결은 서버의 Apache 가 맡음 (apache/zz-blog.conf 참고)
-#   운영 → 127.0.0.1:8081, 테스트 → 127.0.0.1:8082 (서버 안에서만 열림)
+#   운영 → 127.0.0.1:18081, 테스트 → 127.0.0.1:18082 (서버 안에서만 열림, .env 의 PROD_PORT/TEST_PORT 로 변경 가능)
 #  ※ Apache 가 없는 서버라면 Caddy 사용:  docker compose --profile caddy up -d
 #  폴더 구조 (/opt/blog)
 #    docker-compose.yml, Caddyfile, .env, update.sh   ← 이 deploy 폴더 파일들
@@ -18,7 +18,7 @@ services:
       APP_SECRET: ${PROD_APP_SECRET}
       JAVA_OPTS: "-Xmx768m"
     ports:
-      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:${PROD_PORT:-18081}:8080"
     volumes:
       - ./data/prod:/data
 
@@ -32,7 +32,7 @@ services:
       APP_SECRET: ${TEST_APP_SECRET}
       JAVA_OPTS: "-Xmx512m"
     ports:
-      - "127.0.0.1:8082:8080"
+      - "127.0.0.1:${TEST_PORT:-18082}:8080"
     volumes:
       - ./data/test:/data
 

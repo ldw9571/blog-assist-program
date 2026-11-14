@@ -69,6 +69,10 @@ else
   ok "기존 설정 파일 사용: $BASE/.env"
 fi
 set -a; . ./.env; set +a
+# 서버 안에서만 쓰는 포트 (다른 프로그램과 겹치지 않게 18081/18082 기본)
+if ! grep -q '^PROD_PORT=' .env; then echo "PROD_PORT=18081" >> .env; fi
+if ! grep -q '^TEST_PORT=' .env; then echo "TEST_PORT=18082" >> .env; fi
+set -a; . ./.env; set +a
 
 # ─────────────────────────────────────────
 # 2. 코드 받기 (운영=main, 테스트=develop)
@@ -90,6 +94,14 @@ if [ "$MODE" = "all" ]; then
 # 3. 프로그램 실행
 # ─────────────────────────────────────────
   step "3. 운영·테스트 서버 실행 (처음엔 빌드로 3~5분 걸려요)"
+  # 포트가 다른 프로그램에 이미 쓰이고 있는지 확인 (우리 컨테이너가 쓰는 건 괜찮음)
+  for pp in "$PROD_PORT:blog-prod" "$TEST_PORT:blog-test"; do
+    port=${pp%%:*}; name=${pp##*:}
+    if ss -tlnH "( sport = :$port )" | grep -q . && \
+       ! docker port "$name" 2>/dev/null | grep -q ":$port\$"; then
+      die "포트 $port 를 다른 프로그램이 쓰고 있어요. $BASE/.env 에서 ${name#blog-} 포트(PROD_PORT/TEST_PORT)를 다른 숫자로 바꾼 뒤 다시 실행해 주세요."
+    fi
+  done
   # 도커 이미지 저장소가 가끔 '요청이 많다(toomanyrequests)'며 거절함 → 하나씩, 여러 번 재시도
   for img in eclipse-temurin:21-jdk eclipse-temurin:21-jre lscr.io/linuxserver/duckdns:latest; do
     for i in 1 2 3 4 5 6; do
@@ -101,11 +113,11 @@ if [ "$MODE" = "all" ]; then
   ok=0
   for i in 1 2 3; do
     if docker compose up -d --build prod test duckdns; then ok=1; break; fi
-    echo "  · 빌드 재시도 ($i/2)... 20초 대기"; sleep 20
+    echo "  · 빌드 재시도 ($i/3)... 20초 대기"; sleep 20
   done
   [ "$ok" = 1 ] || die "빌드에 실패했어요. 위 오류 화면을 보내주세요." 
   echo "  · 켜지는 중..."
-  for port in 8081 8082; do
+  for port in "$PROD_PORT" "$TEST_PORT"; do
     for i in $(seq 1 60); do
       if curl -fs -o /dev/null "http://127.0.0.1:${port}/login"; then ok "127.0.0.1:${port} 응답 확인"; break; fi
       sleep 3
@@ -120,7 +132,8 @@ if [ "$MODE" = "all" ]; then
   BACKUP=""
   [ -f "$APACHE_CONF" ] && { BACKUP="${APACHE_CONF}.bak.$(date +%s)"; cp "$APACHE_CONF" "$BACKUP"; }
   if [ ! -f "${APACHE_CONF%.conf}-le-ssl.conf" ] || [ ! -f "$APACHE_CONF" ]; then
-    sed -e "s/PROD_DOMAIN/${PROD_DOMAIN}/" -e "s/TEST_DOMAIN/${TEST_DOMAIN}/" test/deploy/apache/zz-blog.conf > "$APACHE_CONF"
+    sed -e "s/PROD_DOMAIN/${PROD_DOMAIN}/" -e "s/TEST_DOMAIN/${TEST_DOMAIN}/" \
+        -e "s/PROD_PORT/${PROD_PORT}/" -e "s/TEST_PORT/${TEST_PORT}/" test/deploy/apache/zz-blog.conf > "$APACHE_CONF"
   else
     ok "인증서 설정이 이미 있어서 Apache 연결 파일은 그대로 둘게요."
   fi
