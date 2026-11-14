@@ -34,10 +34,10 @@ cd "$BASE"
 step "1. 설정"
 if [ ! -f .env ]; then
   echo "  DuckDNS 에서 만든 주소 이름을 입력하세요. (.duckdns.org 는 빼고 / 붙여도 괜찮아요)"
-  read -rp "  · 운영 주소 이름  (예: rentjblog)      : " PSUB
-  read -rp "  · 테스트 주소 이름 (예: rentjblog-test) : " TSUB
+  read -erp "  · 운영 주소 이름  (예: rentjblog)      : " PSUB
+  read -erp "  · 테스트 주소 이름 (예: rentjblog-test) : " TSUB
   read -rsp "  · DuckDNS 토큰 (입력해도 화면에 안 보여요): " TOKEN; echo
-  read -rp "  · 인증서 만료 알림 받을 이메일          : " EMAIL
+  read -erp "  · 인증서 만료 알림 받을 이메일          : " EMAIL
   PSUB=${PSUB%.duckdns.org}; TSUB=${TSUB%.duckdns.org}
   PSUB=$(echo "$PSUB" | tr -d ' ' | tr 'A-Z' 'a-z'); TSUB=$(echo "$TSUB" | tr -d ' ' | tr 'A-Z' 'a-z')
   TOKEN=$(echo "$TOKEN" | tr -d ' ')
