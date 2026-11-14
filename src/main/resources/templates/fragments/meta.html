@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+<!-- 카카오톡·문자 링크 미리보기 + 아이콘 (각 화면 <head> 에 넣음) -->
+<th:block th:fragment="og">
+  <meta name="description" content="중고차 매물·맛집·분양 홍보 블로그 글을 AI가 대신 써드려요. 승인된 회원 전용 서비스입니다.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AI 블로그 도우미">
+  <meta property="og:title" content="AI 블로그 도우미">
+  <meta property="og:description" content="중고차 매물·맛집·분양 홍보 블로그 글을 AI가 대신 써드려요. 승인 회원 전용">
+  <meta property="og:image" th:content="${baseUrl} + '/og-image.png'">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" th:content="${baseUrl}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#1d4e89">
+  <link rel="icon" type="image/png" th:href="@{/favicon.png}">
+  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}">
+</th:block>
+</head>
+</html>

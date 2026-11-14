@@ -26,7 +26,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, AppUserRepository users) throws Exception {
         http
             .authorizeHttpRequests(a -> a
-                .requestMatchers("/login", "/signup", "/error", "/favicon.ico").permitAll()
+                .requestMatchers("/login", "/signup", "/error", "/favicon.ico", "/favicon.png", "/apple-touch-icon.png", "/og-image.png").permitAll()
                 .requestMatchers("/admin", "/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .formLogin(f -> f
