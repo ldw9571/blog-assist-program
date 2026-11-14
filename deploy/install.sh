@@ -90,7 +90,20 @@ if [ "$MODE" = "all" ]; then
 # 3. 프로그램 실행
 # ─────────────────────────────────────────
   step "3. 운영·테스트 서버 실행 (처음엔 빌드로 3~5분 걸려요)"
-  docker compose up -d --build prod test duckdns
+  # 도커 이미지 저장소가 가끔 '요청이 많다(toomanyrequests)'며 거절함 → 하나씩, 여러 번 재시도
+  for img in eclipse-temurin:21-jdk eclipse-temurin:21-jre lscr.io/linuxserver/duckdns:latest; do
+    for i in 1 2 3 4 5 6; do
+      if docker pull -q "$img" >/dev/null 2>&1; then ok "이미지 받기: $img"; break; fi
+      [ "$i" = 6 ] && die "이미지($img)를 받지 못했어요. 잠시 후 같은 명령으로 다시 실행해 주세요."
+      echo "  · $img 받기 재시도 ($i/5)... 15초 대기"; sleep 15
+    done
+  done
+  ok=0
+  for i in 1 2 3; do
+    if docker compose up -d --build prod test duckdns; then ok=1; break; fi
+    echo "  · 빌드 재시도 ($i/2)... 20초 대기"; sleep 20
+  done
+  [ "$ok" = 1 ] || die "빌드에 실패했어요. 위 오류 화면을 보내주세요." 
   echo "  · 켜지는 중..."
   for port in 8081 8082; do
     for i in $(seq 1 60); do
