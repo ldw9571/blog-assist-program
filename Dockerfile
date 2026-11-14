@@ -12,7 +12,8 @@ ENV TZ=Asia/Seoul \
     THYMELEAF_CACHE=true \
     JAVA_OPTS="-Xmx512m"
 COPY --from=build /app/build/libs/*-SNAPSHOT.jar app.jar
-# 회원 DB와 분양 자료가 저장되는 곳 → 호스팅에서 '볼륨(유지되는 디스크)'을 /data 에 연결할 것
-VOLUME /data
+# 회원 DB와 분양 자료가 저장되는 곳: /data
+#  → 호스팅에서 '볼륨(유지되는 디스크)'을 /data 에 연결할 것
+#  (Railway 는 Dockerfile 의 VOLUME 명령을 지원하지 않아서 넣지 않음)
 EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
