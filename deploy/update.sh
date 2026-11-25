@@ -11,7 +11,9 @@ update() {
   echo "▶ [$name] 최신 코드 받는 중..."
   git -C "$name" pull --ff-only
   echo "▶ [$name] 새로 빌드하고 재시작하는 중... (1~3분)"
-  docker compose up -d --build "$name"
+  docker compose build "$name"
+  docker compose up -d --force-recreate "$name"   # 새 버전으로 확실히 다시 켜기
+  echo "   버전: $(git -C "$name" log -1 --oneline)"
   echo "✅ [$name] 업데이트 완료"
 }
 
