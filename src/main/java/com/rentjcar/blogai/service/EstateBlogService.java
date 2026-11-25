@@ -36,7 +36,7 @@ public class EstateBlogService {
     // 이모지 범위
     private static final Pattern EMOJI_PATTERN = Pattern.compile(
             "[\\x{1F300}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{2B00}-\\x{2BFF}" +
-                    "\\x{FE0F}\\x{1F1E6}-\\x{1F1FF}\\x{2190}-\\x{21FF}]");
+                    "\\x{FE0F}\\x{1F1E6}-\\x{1F1FF}]");
 
 
     /** 고정 상담 안내 (체크 시 글 끝 해시태그 위에 코드로 그대로 붙임 - AI가 번호를 틀리지 않게) */
@@ -200,34 +200,148 @@ public class EstateBlogService {
         return String.join("\n", out);
     }
 
+    // ─────────────────────────────────────────
+    // 글 표시 (화면 복사용 HTML / 텍스트)
+    //  지원 표기: @@소제목@@, **굵게**, ">> 인용구", "• 목록", "[이미지: 설명]", "| 표 |", "※ 메모", 해시태그 줄
+    // ─────────────────────────────────────────
+    private static final Pattern BOLD_PATTERN = Pattern.compile("\\*\\*(.+?)\\*\\*");
+    private static final Pattern HASHTAG_LINE = Pattern.compile("^(#\\S+\\s*)+$");
+    private static final Pattern TABLE_SEP = Pattern.compile("^\\|?[\\s:|-]*-{2,}[\\s:|-]*\\|?$");
+
     public String formatPostAsHtml(String rawPost) {
         if (rawPost == null || rawPost.isEmpty()) return "";
-        String escaped = rawPost.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-        String withHeadings = SUBHEADING_PATTERN.matcher(escaped)
-                .replaceAll("<b style=\"font-size:19px;\">$1</b>");
-        return sanitizeLines(withHeadings).replace("\n", "<br>");
+        StringBuilder sb = new StringBuilder();
+        List<String> table = new ArrayList<>();
+        String[] lines = rawPost.trim().split("\n", -1);
+        for (int i = 0; i <= lines.length; i++) {
+            String line = i < lines.length ? lines[i] : null;
+            if (line != null && isTableLine(line)) { table.add(line.trim()); continue; }
+            if (!table.isEmpty()) { sb.append(tableHtml(table)); table.clear(); }
+            if (line == null) break;
+            sb.append(lineHtml(line));
+        }
+        return sb.toString();
     }
 
     public String formatPostAsPlain(String rawPost) {
         if (rawPost == null || rawPost.isEmpty()) return "";
-        return sanitizeLines(SUBHEADING_PATTERN.matcher(rawPost).replaceAll("$1"));
+        List<String> out = new ArrayList<>();
+        for (String line : rawPost.trim().split("\n", -1)) {
+            String t = line.trim();
+            if (HASHTAG_LINE.matcher(t).matches()) { out.add(t); continue; }
+            if (isTableLine(t)) {
+                if (TABLE_SEP.matcher(t).matches()) continue;
+                List<String> cells = new ArrayList<>();
+                for (String c : splitCells(t)) cells.add(clean(stripBold(c), false));
+                out.add(String.join("   ", cells));
+                continue;
+            }
+            Matcher h = SUBHEADING_PATTERN.matcher(t);
+            if (h.find()) { out.add(clean(stripBold(h.group(1)), true)); continue; }
+            if (t.startsWith(">>")) { out.add("“ " + clean(stripBold(t.substring(2)), false) + " ”"); continue; }
+            if (t.startsWith("[이미지")) { out.add(t); continue; }
+            if (t.startsWith("•") || t.startsWith("·")) { out.add("• " + clean(stripBold(t.substring(1)), false)); continue; }
+            out.add(clean(stripBold(line), false));
+        }
+        // 빈 줄 2줄 이상 → 1줄
+        List<String> res = new ArrayList<>();
+        for (String l : out) {
+            if (l.trim().isEmpty() && !res.isEmpty() && res.get(res.size() - 1).trim().isEmpty()) continue;
+            res.add(l);
+        }
+        return String.join("\n", res).trim();
     }
 
-    private String sanitizeLines(String text) {
-        String[] lines = text.split("\n", -1);
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            if (!line.trim().matches("^(#\\S+\\s*){1,}$")) {      // 해시태그 줄은 유지
-                line = line.replaceFirst("^(\\s*)[-*]\\s+", "$1");
-                line = line.replace("*", "").replace("#", "");
-                line = EMOJI_PATTERN.matcher(line).replaceAll("");
-                line = line.replaceAll(" {2,}", " ");
-            }
-            sb.append(line);
-            if (i < lines.length - 1) sb.append("\n");
+    private String lineHtml(String line) {
+        String t = line.trim();
+        if (t.isEmpty()) return "<br>";
+        if (HASHTAG_LINE.matcher(t).matches()) return esc(t) + "<br>";
+        Matcher h = SUBHEADING_PATTERN.matcher(t);
+        if (h.find()) {
+            return "<br><b style=\"font-size:19px;\">" + inline(h.group(1), true) + "</b><br>";
         }
-        return sb.toString().trim();
+        if (t.startsWith(">>")) {
+            return "<div style=\"text-align:center;margin:22px 0;\">"
+                    + "<span style=\"color:#b8bcc2;font-size:26px;line-height:1;\">&ldquo;</span><br>"
+                    + "<b>" + inline(t.substring(2), false) + "</b><br>"
+                    + "<span style=\"color:#b8bcc2;font-size:26px;line-height:1;\">&rdquo;</span></div>";
+        }
+        if (t.startsWith("[이미지")) {
+            String desc = t.replaceFirst("^\\[이미지\\s*:?\\s*", "").replaceFirst("\\]\\s*$", "");
+            return "<div style=\"margin:10px 0;padding:16px;border:1px dashed #c5cad1;border-radius:6px;"
+                    + "background:#f8f9fb;color:#8a929c;font-size:13px;text-align:center;\">사진 넣을 자리 · "
+                    + esc(desc) + "</div>";
+        }
+        if (t.startsWith("•") || t.startsWith("·")) {
+            return "&nbsp;• " + inline(t.substring(1), false) + "<br>";
+        }
+        if (t.startsWith("※")) {
+            return "<span style=\"color:#6b7280;font-size:14px;\">" + inline(t, false) + "</span><br>";
+        }
+        return inline(line, false) + "<br>";
+    }
+
+    private String tableHtml(List<String> rows) {
+        StringBuilder sb = new StringBuilder(
+                "<table style=\"border-collapse:collapse;margin:12px 0;font-size:14px;\">");
+        boolean header = true;
+        for (String r : rows) {
+            if (TABLE_SEP.matcher(r).matches()) continue;
+            sb.append("<tr>");
+            for (String c : splitCells(r)) {
+                String cell = inline(c, false);
+                sb.append("<td style=\"padding:9px 16px;border-bottom:1px solid #e5e7eb;")
+                  .append(header ? "font-weight:bold;background:#f5f7fa;" : "").append("\">")
+                  .append(cell).append("</td>");
+            }
+            sb.append("</tr>");
+            header = false;
+        }
+        return sb.append("</table>").toString();
+    }
+
+    private static boolean isTableLine(String line) {
+        String t = line.trim();
+        return t.startsWith("|") && t.length() > 1 && t.indexOf('|', 1) > 0;
+    }
+
+    private static List<String> splitCells(String row) {
+        String t = row.trim();
+        if (t.startsWith("|")) t = t.substring(1);
+        if (t.endsWith("|")) t = t.substring(0, t.length() - 1);
+        List<String> cells = new ArrayList<>();
+        for (String c : t.split("\\|", -1)) cells.add(c.trim());
+        return cells;
+    }
+
+    /** 굵게(**) 처리 + 기호 정리 + HTML 이스케이프 */
+    private String inline(String text, boolean allowEmoji) {
+        StringBuilder sb = new StringBuilder();
+        Matcher m = BOLD_PATTERN.matcher(text);
+        int last = 0;
+        while (m.find()) {
+            sb.append(esc(clean(text.substring(last, m.start()), allowEmoji)));
+            sb.append("<b>").append(esc(clean(m.group(1), allowEmoji))).append("</b>");
+            last = m.end();
+        }
+        sb.append(esc(clean(text.substring(last), allowEmoji)));
+        return sb.toString();
+    }
+
+    private static String stripBold(String text) {
+        return BOLD_PATTERN.matcher(text).replaceAll("$1");
+    }
+
+    /** 본문에 남은 마크다운 기호·이모지 정리 (소제목은 이모지 허용) */
+    private String clean(String text, boolean allowEmoji) {
+        String line = text.replaceFirst("^(\\s*)[-*]\\s+", "$1");
+        line = line.replace("*", "").replace("#", "");
+        if (!allowEmoji) line = EMOJI_PATTERN.matcher(line).replaceAll("");
+        return line.replaceAll(" {2,}", " ");
+    }
+
+    private static String esc(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     // ─────────────────────────────────────────
@@ -292,24 +406,12 @@ public class EstateBlogService {
                 + "【이번 글 주제】" + angleGuide(angle) + "\n"
                 + "【현장명】" + nz(projectName, "자료에서 파악") + "\n"
                 + "【문의/상담 안내】" + nz(contact, "없음 (상담 문의 문구만 자연스럽게)") + "\n"
-                + "【말투】" + nz(tone, "친근한 전문가 구어체") + "\n"
+                + "【말투】" + toneLabel(tone) + "\n"
                 + "【추가 요청】" + nz(memo, "없음") + "\n\n"
                 + "【분양 자료 원문 (이 안의 사실만 사용)】\n" + material + "\n\n"
                 + COMPLIANCE_RULES + "\n"
                 + revise
-                + INFO_POST_RULES + "\n"
-                + "【포스팅 완성본 작성 규칙】\n"
-                + "1. 전체 분량 2000~2500자\n"
-                + "2. 제목과 도입부 첫 문장에 메인 키워드를 그대로(띄어쓰기 포함 동일하게) 넣는다\n"
-                + "3. 메인 키워드는 본문에 4~6회, 서브 키워드는 각 1~2회 자연스럽게 분산\n"
-                + "4. 이번 글 주제에 집중하고, 나머지 정보는 짧게만 언급 (한 글에 모든 내용 몰아넣기 금지 - 연재로 나눔)\n"
-                + "5. 면적, 실 수, 층수, 거리(도보 몇 분) 같은 구체적 숫자를 자료에서 정확히 인용\n"
-                + "6. 친근한 해요체 (~해요, ~이에요), '~습니다'체 금지, 2~3줄마다 줄바꿈\n"
-                + "7. 사진 들어갈 자리는 (사진: 조감도) 처럼 괄호로 표시\n"
-                + "8. 마지막에 '본 포스팅은 분양 자료를 바탕으로 작성되었으며, 세부 내용은 사업 진행에 따라 변경될 수 있어요.' 문구 포함\n"
-                + "9. [매우 중요] 본문에 하이픈(-), 샵(#), 별표(*) 기호 금지. 맨 마지막 해시태그 줄에서만 # 사용\n"
-                + "10. [매우 중요] 이모지/이모티콘 금지\n"
-                + "11. [매우 중요] 소제목은 '@@소제목 내용@@' 형태로 3~5개 배치. 소제목 1~2개에는 키워드를 넣는다\n\n"
+                + rulesFor(tone) + "\n"
                 + "【출력 형식 - 반드시 아래 구분자 그대로】\n"
                 + "===GUIDE_START===\n"
                 + "[추천 제목 5개]\n1. \n2. \n3. \n4. \n5. \n\n"
@@ -321,6 +423,118 @@ public class EstateBlogService {
                 + "(첫 줄은 제목, 그 다음부터 본문. 소제목은 @@ @@, 맨 마지막 줄에 해시태그 10개)\n"
                 + "===POST_END===\n";
     }
+
+    // ─────────────────────────────────────────
+    // 글 스타일 (말투 선택값으로 구분)
+    //   info  : 정보성 검색 노출형 (기존 기본)
+    //   story : 호재 스토리형 — 번호 호재 + 섹션별 인용구 + '실물' 강조
+    //   card  : 장점 정리형 — "이모지 키워드 | 한 줄 요약" 소제목 + 투자 계산표
+    //   news  : 기사 정리형 — 뉴스 요약 + 관련 기사 + 솔직한 정리
+    // ─────────────────────────────────────────
+    public static String styleOf(String tone) {
+        if (tone == null) return "info";
+        if (tone.startsWith("호재 스토리형")) return "story";
+        if (tone.startsWith("장점 정리형"))  return "card";
+        if (tone.startsWith("기사 정리형"))  return "news";
+        return "info";
+    }
+
+    private String toneLabel(String tone) {
+        switch (styleOf(tone)) {
+            case "story": return "호재 스토리형 (아래 스타일 규칙)";
+            case "card":  return "장점 정리형 (아래 스타일 규칙)";
+            case "news":  return "기사 정리형 (아래 스타일 규칙)";
+            default:      return nz(tone, "친근한 전문가 구어체");
+        }
+    }
+
+    private String rulesFor(String tone) {
+        switch (styleOf(tone)) {
+            case "story": return STYLE_COMMON + STORY_RULES;
+            case "card":  return STYLE_COMMON + CARD_RULES;
+            case "news":  return STYLE_COMMON + NEWS_RULES;
+            default:      return INFO_POST_RULES + "\n" + INFO_WRITING_RULES;
+        }
+    }
+
+    /** 정보성(기본) 글 작성 규칙 */
+    private static final String INFO_WRITING_RULES =
+            "【포스팅 완성본 작성 규칙】\n"
+                    + "1. 전체 분량 2000~2500자\n"
+                    + "2. 제목과 도입부 첫 문장에 메인 키워드를 그대로(띄어쓰기 포함 동일하게) 넣는다\n"
+                    + "3. 메인 키워드는 본문에 4~6회, 서브 키워드는 각 1~2회 자연스럽게 분산\n"
+                    + "4. 이번 글 주제에 집중하고, 나머지 정보는 짧게만 언급 (한 글에 모든 내용 몰아넣기 금지 - 연재로 나눔)\n"
+                    + "5. 면적, 실 수, 층수, 거리(도보 몇 분) 같은 구체적 숫자를 자료에서 정확히 인용\n"
+                    + "6. 친근한 해요체 (~해요, ~이에요), '~습니다'체 금지, 2~3줄마다 줄바꿈\n"
+                    + "7. 사진 들어갈 자리는 (사진: 조감도) 처럼 괄호로 표시\n"
+                    + "8. 마지막에 '본 포스팅은 분양 자료를 바탕으로 작성되었으며, 세부 내용은 사업 진행에 따라 변경될 수 있어요.' 문구 포함\n"
+                    + "9. [매우 중요] 본문에 하이픈(-), 샵(#), 별표(*) 기호 금지. 맨 마지막 해시태그 줄에서만 # 사용\n"
+                    + "10. [매우 중요] 이모지/이모티콘 금지\n"
+                    + "11. [매우 중요] 소제목은 '@@소제목 내용@@' 형태로 3~5개 배치. 소제목 1~2개에는 키워드를 넣는다\n";
+
+    /** 세 스타일 공통: 말투·표기 규칙 */
+    private static final String STYLE_COMMON =
+            "【공통 말투·표기 규칙 - 반드시 지킬 것】\n"
+                    + "1. 해요체. 한 문장은 짧게(대부분 30자 안팎), 거의 한 문장마다 줄바꿈. 친구에게 설명하듯 담백하게. 감탄사·느낌표 남발 금지.\n"
+                    + "2. 숫자(연도, 규모, 금액, 면적, 층고, 도보 N분, 거리 m)는 **굵게**. 굵게는 한 문장에 한 군데만, 남발 금지.\n"
+                    + "3. 솔직함으로 신뢰를 준다: 현장에서 먼 호재는 '바로 옆은 아니에요' 처럼 먼저 인정하고, 일정이 바뀔 수 있는 계획은 그 사실을 함께 쓴다.\n"
+                    + "4. 독자에게 던지는 질문 한 줄을 섹션마다 섞는다 (예: 그러면 무엇이 늘어날까요?).\n"
+                    + "5. 마지막 섹션은 '@@여기서부터는 직접 물어보셔야 해요@@'. 글로 다 쓰면 헷갈리는 개인별 질문 3~4개를 목록으로 "
+                    +    "(남은 호실·타입, 실제 들어가는 내 돈, 월세 예상, 내 조건 대출 등) → '내 조건에 맞춰 알려 드릴게요' 식 한 줄 → "
+                    +    "연락할 때 할 한마디 안내 (예: \"(글 주제) 글 보고 연락드렸어요\" 한마디면 돼요). 전화번호·링크는 【문의/상담 안내】에 있을 때만 쓴다.\n"
+                    + "6. 끝에 고지 문구 1~3줄: '개발 계획과 일정은 정부와 사업자 사정에 따라 바뀔 수 있어요.', "
+                    +    "'본 포스팅은 분양 자료를 바탕으로 작성되었으며, 세부 내용은 사업 진행에 따라 변경될 수 있어요.', 대출·세금이 나오면 '대출과 세금 조건은 개인마다 달라요.' "
+                    +    "그 다음 줄에 해시태그 10개.\n"
+                    + "7. 메인 키워드는 제목 또는 도입 첫 두 문장에 한 번, 본문에 3~4회 자연스럽게. 서브 키워드는 각 1회 정도.\n"
+                    + "8. 표기 기호 (이것만 사용):\n"
+                    +    "   소제목 = @@소제목@@ / 굵게 = **글자** / 인용구 한 줄 = 줄 맨 앞에 '>> ' / 목록 = 줄 맨 앞에 '• ' / "
+                    +    "사진 자리 = [이미지: 사진 설명] 한 줄 / 표 = | 구분 | 1년 | 한 달 | 처럼 | 로 나눈 줄 (첫 줄은 제목 줄) / 주의 메모 = 줄 맨 앞에 '※ '\n"
+                    +    "   하이픈(-)으로 시작하는 줄과 별표 한 개(*)는 쓰지 않는다. 샵(#)은 맨 마지막 해시태그 줄에서만.\n"
+                    + "9. 자료에 없는 숫자·분양가·혜택·일정은 지어내지 않는다. 참고 블로그의 문장을 베끼지 말고 이 현장 자료로 새로 쓴다.\n\n";
+
+    /** 호재 스토리형 */
+    private static final String STORY_RULES =
+            "【스타일: 호재 스토리형】 분량 1500~2200자, 이모지 금지\n"
+                    + "흐름: 궁금증 제목 → 짧은 도입 → 번호 호재 3~5개 → 전환 섹션 → 직접 물어보셔야 해요\n"
+                    + "1. 제목: 숫자 + 궁금증. 사실 한 문장 + '~있다면?' 같은 질문 한 문장 구성 권장. 가격대(○억대)나 신축·즉시 입주 같은 한 방을 넣는다. 40자 이내.\n"
+                    + "2. 도입 5~7줄: 누구나 공감할 부동산 원칙 한 문장 → 이 동네 핵심 호재를 한 줄로 나열(**굵게**) → '그런데 지금 (지역)이 그래요' 식 전환 "
+                    +    "→ 이 현장을 가격대·준공 여부와 함께 소개(**굵게**) → '오늘은 딱 N가지만 보여 드릴게요' 식 예고.\n"
+                    + "3. 본문: '@@1. (사실을 짧게 말하는 문장)@@' 번호 소제목 3~5개. 바로 다음 줄에 [이미지: 사진 설명]. "
+                    +    "섹션 4~7줄: 사실(숫자 굵게) → 질문 한 줄 → 답 → 이 현장에서의 거리·연결(걸어서 약 N분).\n"
+                    + "4. 섹션 끝마다 '>> ' 인용구 한 줄: 핵심 한 줄 요약, 솔직한 주의점, 또는 독자에게 묻는 질문.\n"
+                    + "5. 전환 섹션 '@@그래서, \"(핵심 단어)\"가 중요해요@@': 다른 선택지(아직 안 지은 분양 등)의 불편함 • 목록 vs 이 현장의 장점 • 목록(굵게) 대비, 마지막에 **굵은 결론 한 문장**.\n";
+
+    /** 장점 정리형 */
+    private static final String CARD_RULES =
+            "【스타일: 장점 정리형】 분량 2000~3000자\n"
+                    + "흐름: 대표 사진 → 장점 소제목 5~8개 → (투자·대출 계산) → 건물 한눈에 보기 → 마무리 요약 → 직접 물어보셔야 해요\n"
+                    + "1. 제목: 이 현장의 장점 키워드를 + 로 묶거나 가장 강한 장점 하나를 앞세운다 (예: 지역 현장명, 초역세권 + 계약금 10%로 시작하는 1억대 오피스텔). 메인 키워드 포함.\n"
+                    + "2. 도입 2~4줄: 이 글에서 무엇을 정리하는지 짧게.\n"
+                    + "3. 소제목 형식: '@@(이모지 1개) 장점 키워드 | 한 줄 요약@@' (예: @@🚇 초역세권 | ○○역까지 걸어서 약 3분@@). "
+                    +    "이모지는 소제목 맨 앞에만 1개 허용, 본문에는 이모지 금지. 장점 키워드는 초역세권/병세권/학세권/평형/층고/레버리지/대출 안내/즉시 입주 처럼 짧게.\n"
+                    + "4. 소제목 다음 줄 [이미지: 사진 설명], 그 다음 2~5줄 설명. 누가 이 집을 찾는지 • 목록으로 구체적인 사람을 그린다 (예: 야간 근무가 많은 간호사, 병원 근처에 살아야 하는 전공의).\n"
+                    + "5. 투자·대출 내용이 자료에 있으면: '@@왜 ~할까요?@@' 같은 질문형 소제목으로 원리를 쉽게 풀고(①, ② 로 경우 나누기, → 로 흐름 표시), "
+                    +    "'@@숫자로 다시 보면@@' 에서 | 구분 | 1년 | 한 달 | 표로 계산을 보여준다 (월세 수입, 대출 이자, 남는 금액 등). "
+                    +    "계약금/대출/잔금 비율도 | 구분 | 비율 | 표로. 계산은 자료의 숫자로 정확히, 계산식이 맞는지 다시 확인한다. "
+                    +    "표 아래 '※ 위 계산은 공실 없이 월세가 들어오는 경우의 단순 예시예요. 관리비·세금·수리비는 빠져 있어요.' 같은 주의 메모를 꼭 붙인다. 수익 보장처럼 쓰지 않는다.\n"
+                    + "6. '정리하면 이런 구조예요.' 다음에 1. 2. 3. 번호 줄로 핵심 3개 요약(핵심어 굵게).\n"
+                    + "7. 건물 구성이 자료에 있으면 '@@🏢 건물 한눈에 보기@@' 에서 층별 구성을 • 목록으로.\n"
+                    + "8. '@@마무리@@': 첫 줄에 장점을 + 로 이은 **굵은 한 줄 요약** (예: 초역세권 + 병세권 + 10평대 + 계약금 10%), 다음 줄에 짧은 리듬 문장 한 줄.\n";
+
+    /** 기사 정리형 */
+    private static final String NEWS_RULES =
+            "【스타일: 기사 정리형】 분량 1500~2500자, 이모지 금지\n"
+                    + "흐름: 큰 이슈 나열 제목 → '요즘 ○○ 뉴스, 보셨어요?' 도입 → 번호 이슈 3~5개(+관련 기사) → '솔직하게 말씀드릴게요' → 이 현장 → 직접 물어보셔야 해요 → 고지\n"
+                    + "1. 제목: 큰 숫자·큰 이름을 쉼표로 나열 + '~가 바뀌는 지금, (현장명)을 봐야 하는 이유' 형태. 메인 키워드나 지역명 포함.\n"
+                    + "2. 도입: '요즘 (지역) 뉴스, 보셨어요?' → 큰 이슈 이름들을 한 줄로 나열 → '그런데 정작 궁금한 건 이거예요.' → 독자의 속마음 질문을 따옴표로 → '오늘은 확인된 것만 짧게 정리했어요.'\n"
+                    + "3. 이슈 소제목: '@@1. (이슈 한 줄)@@'. 다음 줄 [이미지: 사진 설명]. 본문 2~4줄은 '언제, 누가, 무엇을, 규모'를 숫자로 담백하게. 여러 항목이면 • 목록 ('더현대: 2026년 1월 착공, 2029년 개점 목표' 처럼 '이름: 일정').\n"
+                    + "4. 관련 기사: [매우 중요] 【분양 자료 원문】이나 【추가 요청】에 기사 제목·매체·날짜가 실제로 있을 때만, 이슈 아래에 '관련 기사' 한 줄 다음 "
+                    +    "• 매체 (날짜) 「기사 제목」 형식으로 그대로 옮긴다. 주어진 기사가 없으면 '관련 기사' 부분을 통째로 쓰지 않는다. 기사·매체·날짜를 절대 지어내지 않는다.\n"
+                    + "5. 이슈마다 끝에 괄호 한 줄로 변동 가능성 메모 (예: (군공항 이전이 먼저 이뤄져야 하는 사업이라 일정은 바뀔 수 있어요.)).\n"
+                    + "6. '@@솔직하게 말씀드릴게요@@': 큰 호재는 현장 바로 옆이 아니라 도시 전체가 커지는 이야기라고 인정 → '그럼 (동네)는 뭐가 다를까요?' → "
+                    +    "'이미 다 있는 자리라는 점이에요.' 식 답 → 이미 있는 인프라를 • 목록(거리·도보 분 포함) → 사람이 모이면 어떤 집부터 찾는지 2줄.\n"
+                    + "7. 현장 소개: '(현장명)은 지금 들어갈 수 있어요' 식 한 줄 → '기다릴 필요가 없어요.' → 자료에 있는 장점(준공·즉시 입주·가격대·혜택)을 • 목록.\n"
+                    + "8. 고지에 '이 글은 (작성 시점) 기준으로 공개된 기사를 정리한 것이에요.' (기사를 썼을 때만), 실내 사진이 들어가면 '실내 사진은 촬영 호실이며 실제와 다를 수 있어요.' 추가.\n";
 
     // ─────────────────────────────────────────
     // 정보성 글 노출 원칙 (생성/점검 공통 기준)

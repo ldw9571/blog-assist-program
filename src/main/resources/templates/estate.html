@@ -266,7 +266,13 @@
             <option value="친근한 전문가 구어체" th:selected="${tone == '친근한 전문가 구어체'}">친근한 전문가 구어체</option>
             <option value="직접 다녀온 현장 답사 후기 느낌" th:selected="${tone == '직접 다녀온 현장 답사 후기 느낌'}">현장 답사 후기 느낌</option>
             <option value="사회초년생·1인가구 눈높이" th:selected="${tone == '사회초년생·1인가구 눈높이'}">사회초년생·1인가구 눈높이</option>
+            <optgroup label="── 참고 블로그 스타일 ──">
+              <option value="호재 스토리형" th:selected="${tone == '호재 스토리형'}">호재 스토리형 (번호 호재 + 인용구 + 실물 강조)</option>
+              <option value="장점 정리형" th:selected="${tone == '장점 정리형'}">장점 정리형 (초역세권 | 한 줄 요약 + 계산표)</option>
+              <option value="기사 정리형" th:selected="${tone == '기사 정리형'}">기사 정리형 (뉴스 요약 + 관련 기사)</option>
+            </optgroup>
           </select>
+          <p class="tip" style="line-height:1.6;">기사 정리형은 아래 '추가 요청'에 기사(매체 · 날짜 · 제목)를 붙여넣어 주세요. 없으면 관련 기사 부분은 빼고 써요.</p>
         </div>
       </div>
       <div class="form-group">
