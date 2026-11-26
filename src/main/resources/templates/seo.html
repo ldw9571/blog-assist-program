@@ -109,6 +109,7 @@
         <a th:if="${me != null and me.car}" th:href="@{/}">🚗 중고차 블로그 생성기</a>
         <a th:if="${me != null and me.seo}" th:href="@{/seo}">🍽️ 콘텐츠 블로그 도우미</a>
         <a th:if="${me != null and me.estate}" th:href="@{/estate}">🏢 분양 블로그 도우미</a>
+        <a th:if="${me != null and me.image}" th:href="@{/images}">🖼️ 사진 변환 도구</a>
     </div>
 
     <div th:if="${errorMsg}" class="error-box" th:text="${errorMsg}"></div>

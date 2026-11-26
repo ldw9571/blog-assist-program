@@ -5,7 +5,7 @@ import java.time.temporal.ChronoUnit;
 
 /** 화면 상단 표시용 회원 정보 */
 public record MeView(String username, String displayName, boolean admin,
-                     boolean car, boolean seo, boolean estate,
+                     boolean car, boolean seo, boolean estate, boolean image,
                      LocalDate expiresAt, long daysLeft, boolean hasKey) {
 
     public static MeView of(AppUser u) {
@@ -13,7 +13,7 @@ public record MeView(String username, String displayName, boolean admin,
         long left = u.getExpiresAt() == null ? -1 : ChronoUnit.DAYS.between(today, u.getExpiresAt());
         String name = (u.getDisplayName() == null || u.getDisplayName().isBlank()) ? u.getUsername() : u.getDisplayName();
         return new MeView(u.getUsername(), name, u.isAdmin(),
-                u.can(Feature.CAR), u.can(Feature.SEO), u.can(Feature.ESTATE),
+                u.can(Feature.CAR), u.can(Feature.SEO), u.can(Feature.ESTATE), u.can(Feature.IMAGE),
                 u.getExpiresAt(), left, u.hasApiKey());
     }
 

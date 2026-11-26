@@ -37,7 +37,7 @@ public class AccessGuardInterceptor implements HandlerInterceptor {
             res.sendRedirect(first == null ? "/status" : first.getPath());
             return false;
         }
-        if (!u.hasApiKey()) {
+        if (feature.needsApiKey() && !u.hasApiKey()) {
             res.sendRedirect("/account?needKey");
             return false;
         }

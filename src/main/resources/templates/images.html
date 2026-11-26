@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>사진 변환 도구 - 렌트제이카</title>
+  <th:block th:replace="~{fragments/meta :: og}"></th:block>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; padding: 20px; }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    h1 { text-align: center; color: #1a1a2e; padding: 20px 0 5px; font-size: 22px; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 16px; font-size: 13px; }
+    .nav-link { text-align: center; margin-bottom: 20px; }
+    .nav-link a { color: #1d4e89; text-decoration: none; font-size: 13px; font-weight: bold; margin: 0 10px; }
+    .nav-link a:hover { text-decoration: underline; }
+    .card { background: #fff; border-radius: 10px; padding: 22px 26px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-top: 4px solid #6c4ab6; }
+    .card h2 { font-size: 16px; color: #1a1a2e; margin-bottom: 4px; }
+    .card .desc { font-size: 12px; color: #888; margin-bottom: 16px; line-height: 1.6; }
+    .step { display: inline-block; background: #6c4ab6; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-right: 6px; vertical-align: 2px; }
+
+    .drop { display: block; border: 2px dashed #c9bdea; border-radius: 10px; padding: 34px 16px; text-align: center; color: #6c4ab6;
+            background: #faf8ff; cursor: pointer; transition: background .15s; }
+    .drop.over { background: #efe9ff; }
+    .drop strong { display: block; font-size: 15px; margin-bottom: 6px; }
+    .drop span { font-size: 12px; color: #888; }
+    .picked { margin-top: 10px; font-size: 13px; color: #333; }
+
+    .opts { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
+    .opt { flex: 1; min-width: 190px; }
+    .opt label.t { display: block; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 6px; }
+    .opt select, .opt input[type=text] { width: 100%; padding: 9px 11px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; font-family: inherit; }
+    .seg { display: flex; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+    .seg label { flex: 1; text-align: center; padding: 9px 4px; font-size: 13px; cursor: pointer; border-right: 1px solid #ddd; color: #555; }
+    .seg label:last-child { border-right: none; }
+    .seg input { display: none; }
+    .seg input:checked + span { color: #6c4ab6; font-weight: bold; }
+    .seg label:has(input:checked) { background: #f1ecff; }
+    .tip { font-size: 11px; color: #888; margin-top: 5px; line-height: 1.5; }
+    .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #333; margin-top: 14px; }
+
+    .btn-submit { display: block; width: 100%; padding: 14px; background: linear-gradient(135deg, #6c4ab6, #4a2f8a); color: #fff; border: none;
+                  border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 16px; font-family: inherit; }
+    .btn-submit:disabled { opacity: .5; cursor: default; }
+    .progress { display: none; margin-top: 14px; }
+    .progress.show { display: block; }
+    .bar-wrap { background: #eee; border-radius: 20px; height: 8px; overflow: hidden; }
+    .bar { height: 100%; width: 0%; background: linear-gradient(90deg,#6c4ab6,#a58be8); transition: width .2s; }
+    .progress p { font-size: 12px; color: #555; margin-top: 6px; }
+
+    .result-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .result-head h2 { flex: 1; font-size: 15px; color: #333; border-left: 4px solid #34a853; padding-left: 10px; }
+    .btn { padding: 10px 20px; border: none; border-radius: 7px; font-size: 13px; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-block; }
+    .btn-green { background: #34a853; color: #fff; }
+    .btn-line { background: #fff; color: #6c4ab6; border: 1px solid #6c4ab6; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .grid a { display: block; text-decoration: none; color: #555; font-size: 11px; text-align: center; }
+    .grid img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 6px; background: #eee; display: block; margin-bottom: 4px; }
+    .fail { margin-top: 12px; font-size: 12px; color: #c0392b; line-height: 1.6; }
+    .note { font-size: 12px; color: #666; line-height: 1.7; }
+    .note b { color: #333; }
+    @media (max-width: 600px) { body { padding: 12px; } .card { padding: 18px 16px; } }
+  </style>
+</head>
+<body>
+<div th:replace="~{fragments/topbar :: bar}"></div>
+<div class="wrap">
+  <h1>🖼️ 사진 변환 도구</h1>
+  <p class="subtitle">같은 사진을 여러 글에 쓸 때 중복 이미지로 잡히지 않게 · 자르기 · 회전 · 색감 · 크기 · 촬영정보 삭제</p>
+
+  <div class="nav-link">
+    <a th:if="${me != null and me.car}" th:href="@{/}">🚗 중고차 블로그 생성기</a>
+    <a th:if="${me != null and me.seo}" th:href="@{/seo}">🍽️ 콘텐츠 블로그 도우미</a>
+    <a th:if="${me != null and me.estate}" th:href="@{/estate}">🏢 분양 블로그 도우미</a>
+    <a th:if="${me != null and me.image}" th:href="@{/images}">🖼️ 사진 변환 도구</a>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">1</span>사진 고르기</h2>
+    <p class="desc">여러 장을 한 번에 골라도 돼요 (JPG · PNG). 사진은 서버로 올라가지 않고 <b>지금 쓰는 기기 안에서</b> 바로 변환돼요.</p>
+    <label class="drop" id="drop">
+      <strong>📂 여기를 눌러 사진 선택 (또는 끌어다 놓기)</strong>
+      <span>카카오톡으로 받은 사진, 휴대폰 사진 모두 가능</span>
+      <input type="file" id="files" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic" multiple hidden>
+    </label>
+    <div class="picked" id="picked"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">2</span>변환 설정</h2>
+    <p class="desc">누를 때마다 사진마다 다른 값이 무작위로 들어가요. 같은 사진을 다음 글에 또 쓰려면 한 번 더 변환하면 다른 결과가 나와요.</p>
+    <div class="opts">
+      <div class="opt">
+        <label class="t">변환 강도</label>
+        <div class="seg">
+          <label><input type="radio" name="level" value="low"><span>약하게</span></label>
+          <label><input type="radio" name="level" value="mid" checked><span>보통</span></label>
+          <label><input type="radio" name="level" value="high"><span>강하게</span></label>
+        </div>
+        <p class="tip">보통: 가장자리 4~9% 자르기, ±2° 회전, 밝기·색감 조정<br>강하게: 더 많이 자르고 색감 차이도 커짐</p>
+      </div>
+      <div class="opt">
+        <label class="t">사진 크기 (긴 쪽 기준)</label>
+        <select id="size">
+          <option value="1200">1200px (가볍게)</option>
+          <option value="1600" selected>1600px (블로그 추천)</option>
+          <option value="2000">2000px (선명하게)</option>
+          <option value="0">줄이지 않음</option>
+        </select>
+      </div>
+      <div class="opt">
+        <label class="t">파일 이름</label>
+        <input type="text" id="prefix" value="photo" maxlength="30">
+        <p class="tip">예) photo → photo_01.jpg, photo_02.jpg …<br>현장 이름을 넣어도 좋아요 (예: 하남시티)</p>
+      </div>
+    </div>
+    <label class="check-row"><input type="checkbox" id="flip"> 좌우 반전도 섞기 (사진 절반 정도)</label>
+    <p class="tip">⚠️ 반전하면 집 구조가 실제와 반대로 보이고 현수막·간판 글자가 거꾸로 돼요. 분양·매물 사진은 끄는 걸 추천해요.</p>
+
+    <button type="button" class="btn-submit" id="run" disabled>✨ 사진 변환하기</button>
+    <div class="progress" id="progress">
+      <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+      <p id="ptext">준비 중…</p>
+    </div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none; border-top-color:#34a853;">
+    <div class="result-head">
+      <h2 id="resultTitle">변환 완료</h2>
+      <a class="btn btn-green" id="zipLink" download>⬇️ 전체 다운로드 (zip)</a>
+      <button type="button" class="btn btn-line" id="again">🔄 다르게 한 번 더</button>
+    </div>
+    <p class="note" style="margin-bottom:12px;">사진을 누르면 한 장씩 저장돼요. 휴대폰에서는 사진을 길게 눌러 저장해도 돼요.</p>
+    <div class="grid" id="grid"></div>
+    <div class="fail" id="fail"></div>
+  </div>
+
+  <div class="card" style="border-top-color:#ccc;">
+    <h2>💡 알아두면 좋은 점</h2>
+    <p class="note">
+      · <b>촬영 정보(EXIF)</b>: 찍은 날짜·기기·<b>위치(GPS)</b> 정보가 모두 지워져요.<br>
+      · 밝기만 살짝 바꾸면 유사 이미지로 잡힐 수 있어서, 자르기·회전·색감을 <b>같이</b> 바꿔요. 같은 사진을 여러 번 쓸수록 "강하게"를 추천해요.<br>
+      · 아이폰 HEIC 사진은 사파리에서만 열려요. 다른 브라우저에서 안 되면 아이폰 설정 → 카메라 → 포맷 → "높은 호환성"으로 바꿔 주세요.<br>
+      · 다른 사람이 찍은 사진이나 인터넷에서 받은 사진은 변환해도 저작권이 그대로 있어요. 직접 찍은 사진이나 허락받은 사진만 써 주세요.
+    </p>
+  </div>
+</div>
+
+<script th:inline="none">
+(function () {
+  'use strict';
+  var LEVELS = {
+    low:  { crop: [0.02, 0.05], rot: 0.8, bright: [1.00, 1.06], contrast: [1.02, 1.06], sat: [0.95, 1.06], warm: [-0.02, 0.02], noise: 0 },
+    mid:  { crop: [0.04, 0.09], rot: 1.8, bright: [1.03, 1.12], contrast: [1.04, 1.12], sat: [0.92, 1.12], warm: [-0.04, 0.05], noise: 2 },
+    high: { crop: [0.07, 0.13], rot: 3.0, bright: [1.05, 1.16], contrast: [1.06, 1.16], sat: [0.88, 1.18], warm: [-0.07, 0.07], noise: 4 }
+  };
+  var $ = function (id) { return document.getElementById(id); };
+  var input = $('files'), drop = $('drop'), runBtn = $('run');
+  var picked = [];
+  var lastUrls = [];
+
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function setFiles(list) {
+    picked = Array.prototype.filter.call(list, function (f) {
+      return /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name);
+    });
+    $('picked').textContent = picked.length ? '✅ ' + picked.length + '장 선택됨' : '';
+    runBtn.disabled = picked.length === 0;
+  }
+  input.addEventListener('change', function () { setFiles(input.files); });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) setFiles(e.dataTransfer.files); });
+
+  // 브라우저가 휴대폰 사진의 회전 정보(EXIF)를 반영해서 바로 세운 상태로 읽음
+  function loadImage(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () { resolve({ img: img, url: url }); };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('열 수 없는 사진')); };
+      img.src = url;
+    });
+  }
+
+  // 회전한 사진 안에 잘라낼 영역이 완전히 들어가는지 (빈 모서리 방지)
+  function fits(W, H, cx, cy, cw, ch, th) {
+    var c = Math.cos(th), s = Math.sin(th);
+    var pts = [[-cw / 2, -ch / 2], [cw / 2, -ch / 2], [cw / 2, ch / 2], [-cw / 2, ch / 2]];
+    for (var i = 0; i < 4; i++) {
+      var x = cx + pts[i][0] * c - pts[i][1] * s;
+      var y = cy + pts[i][0] * s + pts[i][1] * c;
+      if (x < 0 || y < 0 || x > W || y > H) return false;
+    }
+    return true;
+  }
+
+  function transform(img, cfg, maxSide, flip) {
+    var W = img.naturalWidth, H = img.naturalHeight;
+    var l = rnd(cfg.crop[0], cfg.crop[1]), r = rnd(cfg.crop[0], cfg.crop[1]);
+    var t = rnd(cfg.crop[0], cfg.crop[1]), b = rnd(cfg.crop[0], cfg.crop[1]);
+    var cw = W * (1 - l - r), ch = H * (1 - t - b);
+    var cx = W * l + cw / 2, cy = H * t + ch / 2;
+    var th = rnd(-cfg.rot, cfg.rot) * Math.PI / 180;
+    for (var k = 0; k < 60 && !fits(W, H, cx, cy, cw, ch, th); k++) { cw *= 0.98; ch *= 0.98; }
+
+    var scale = (maxSide > 0 && Math.max(cw, ch) > maxSide) ? maxSide / Math.max(cw, ch) : 1;
+    var ow = Math.round(cw * scale), oh = Math.round(ch * scale);
+    var cv = document.createElement('canvas');
+    cv.width = ow; cv.height = oh;
+    var ctx = cv.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.translate(ow / 2, oh / 2);
+    if (flip) ctx.scale(-1, 1);
+    ctx.scale(scale, scale);
+    ctx.rotate(-th);
+    ctx.drawImage(img, -cx, -cy);
+
+    // 밝기 · 대비 · 채도 · 색온도 · 아주 약한 노이즈
+    var br = rnd(cfg.bright[0], cfg.bright[1]), co = rnd(cfg.contrast[0], cfg.contrast[1]);
+    var sa = rnd(cfg.sat[0], cfg.sat[1]), wa = rnd(cfg.warm[0], cfg.warm[1]), nz = cfg.noise;
+    var data = ctx.getImageData(0, 0, ow, oh), d = data.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var R = d[i] * br, G = d[i + 1] * br, B = d[i + 2] * br;
+      R = (R - 128) * co + 128; G = (G - 128) * co + 128; B = (B - 128) * co + 128;
+      var Y = 0.299 * R + 0.587 * G + 0.114 * B;
+      R = Y + (R - Y) * sa; G = Y + (G - Y) * sa; B = Y + (B - Y) * sa;
+      R *= (1 + wa); B *= (1 - wa);
+      if (nz) { var n = (Math.random() * 2 - 1) * nz; R += n; G += n; B += n; }
+      d[i] = R; d[i + 1] = G; d[i + 2] = B;   // Uint8ClampedArray 가 0~255로 자동 맞춤
+    }
+    ctx.putImageData(data, 0, 0);
+
+    var q = rnd(0.88, 0.93);
+    return new Promise(function (resolve, reject) {
+      cv.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error('저장 실패')); }, 'image/jpeg', q);
+    });
+  }
+
+  // ── zip 만들기 (압축 없이 묶기만: JPG는 이미 압축돼 있어서 크기 차이 거의 없음) ──
+  var CRC = (function () {
+    var t = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function makeZip(entries) {   // entries: [{name, data(Uint8Array)}]
+    var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+    var now = new Date();
+    var dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    var dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    entries.forEach(function (e) {
+      var name = enc.encode(e.name), crc = crc32(e.data), size = e.data.length;
+      var lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+      lh.setUint16(8, 0, true); lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true);
+      lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+      parts.push(lh.buffer, name, e.data);
+      var ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+      ch.setUint16(10, 0, true); ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true);
+      ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+      central.push(ch.buffer, name);
+      offset += 30 + name.length + size;
+    });
+    var cdSize = central.reduce(function (s, p) { return s + p.byteLength; }, 0);
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+    end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+    return new Blob(parts.concat(central, [end.buffer]), { type: 'application/zip' });
+  }
+
+  async function run() {
+    if (!picked.length) return;
+    var level = document.querySelector('input[name=level]:checked').value;
+    var cfg = LEVELS[level], maxSide = parseInt($('size').value, 10), flipOn = $('flip').checked;
+    var prefix = ($('prefix').value || 'photo').trim().replace(/[\\/:*?"<>|\s]+/g, '_') || 'photo';
+
+    lastUrls.forEach(function (u) { URL.revokeObjectURL(u); });
+    lastUrls = [];
+    runBtn.disabled = true; $('again').disabled = true;
+    $('progress').classList.add('show');
+    var grid = $('grid'); grid.innerHTML = '';
+    var fails = [], entries = [];
+    var digits = picked.length >= 100 ? 3 : 2;
+
+    for (var i = 0; i < picked.length; i++) {
+      $('ptext').textContent = (i + 1) + ' / ' + picked.length + '장 변환 중…';
+      $('bar').style.width = Math.round(i / picked.length * 100) + '%';
+      await new Promise(function (r) { setTimeout(r, 0); });   // 화면 갱신
+      var loaded = null;
+      try {
+        loaded = await loadImage(picked[i]);
+        var blob = await transform(loaded.img, cfg, maxSide, flipOn && Math.random() < 0.5);
+        var num = digits === 3 ? ('00' + (entries.length + 1)).slice(-3) : pad(entries.length + 1);
+        var name = prefix + '_' + num + '.jpg';
+        entries.push({ name: name, data: new Uint8Array(await blob.arrayBuffer()) });
+        var url = URL.createObjectURL(blob); lastUrls.push(url);
+        var a = document.createElement('a'); a.href = url; a.download = name;
+        var im = document.createElement('img'); im.src = url; im.alt = name; im.loading = 'lazy';
+        a.appendChild(im); a.appendChild(document.createTextNode(name));
+        grid.appendChild(a);
+      } catch (e) {
+        fails.push(picked[i].name);
+      } finally {
+        if (loaded) URL.revokeObjectURL(loaded.url);
+      }
+    }
+    $('bar').style.width = '100%';
+    $('ptext').textContent = '완료!';
+
+    if (entries.length) {
+      var zipUrl = URL.createObjectURL(makeZip(entries)); lastUrls.push(zipUrl);
+      var zl = $('zipLink'); zl.href = zipUrl; zl.download = prefix + '_변환사진.zip';
+      zl.style.display = '';
+    } else {
+      $('zipLink').style.display = 'none';
+    }
+    $('resultTitle').textContent = '변환 완료 · ' + entries.length + '장';
+    $('fail').textContent = fails.length ? '⚠️ 열지 못한 사진 ' + fails.length + '장: ' + fails.join(', ') : '';
+    $('resultCard').style.display = '';
+    runBtn.disabled = false; $('again').disabled = false;
+    $('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  runBtn.addEventListener('click', run);
+  $('again').addEventListener('click', run);
+})();
+</script>
+</body>
+</html>
